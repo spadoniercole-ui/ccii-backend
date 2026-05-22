@@ -1,210 +1,42 @@
-# ============================================================# ========================================================= - VERSIONE STABILE FINALE (CORS OK)
-# ============================================================
-
-import os
-import uuid
-import jwt
-import bcrypt
-from datetime import datetime, timedelta
-
-from fastapi import FastAPI, Depends, HTTPException, Header
-from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import create_engine, Column, String, Float
-from sqlalchemy.orm import sessionmaker, declarative_base, Session
-from pydantic import BaseModel
-
-# ============================================================
-# CONFIG
-# ============================================================
-
-SECRET = os.getenv("SECRET", "secret")
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./ccii.db")
-
-SUPERADMIN_USERNAME = "SuperAdmin"
-SUPERADMIN_PASSWORD = "CCIIWeb2.0"
-
-# ============================================================
-# DATABASE
-# ============================================================
-
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
-)
-
-SessionLocal = sessionmaker(bind=engine)
-Base = declarative_base()
-
-# ============================================================
-# MODELS
-# ============================================================
-
-class Tenant(Base):
-    __tablename__ = "tenants"
-    id = Column(String, primary_key=True)
-    name = Column(String)
-    plan = Column(String)
-
-class User(Base):
-    __tablename__ = "users"
-    id = Column(String, primary_key=True)
-    username = Column(String, unique=True)
-    password = Column(String)
-    role = Column(String)
-    tenant_id = Column(String)
-
-class Azienda(Base):
-    __tablename__ = "aziende"
-    id = Column(String, primary_key=True)
-    nome = Column(String)
-    dscr = Column(Float)
-    roe = Column(Float)
-    tenant_id = Column(String)
-
-Base.metadata.create_all(bind=engine)
-
-# ============================================================
-# SCHEMAS
-# ============================================================
-
-class LoginDTO(BaseModel):
-    username: str
-    password: str
-
-# ============================================================
-# AUTH
-# ============================================================
-
-def hash_pwd(p): return bcrypt.hashpw(p.encode(), bcrypt.gensalt()).decode()
-def verify_pwd(p, h): return bcrypt.checkpw(p.encode(), h.encode())
-
-def create_token(payload):
-    return jwt.encode({
-        **payload,
-        "exp": datetime.utcnow() + timedelta(hours=8)
-    }, SECRET, algorithm="HS256")
-
-def get_user(authorization: str = Header(None)):
-    if not authorization:
-        raise HTTPException(401)
-
-    try:
-        return jwt.decode(authorization, SECRET, algorithms=["HS256"])
-    except:
-        raise HTTPException(401)
-
-def is_super_admin(u):
-    return u.get("role") == "SUPER_ADMIN"
-
-# ============================================================
-# APP
-# ============================================================
-
-app = FastAPI()
-
-# ✅ CORS CORRETTO PER VERCEL
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "https://cciiplatform.vercel.app"
-    ],
+from fastapi import FastAPI, HTTPExceptionfrom fastapi import FastAPI, HTTP.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ============================================================
-# DB SESSION
-# ============================================================
-
-def db():
-    session = SessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
-
-# ============================================================
-# HEALTH CHECK (RAILWAY)
-# ============================================================
+# =====================================================
+# TEST ENDPOINT
+# =====================================================
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
-# ============================================================
-# ROOT
-# ============================================================
-
-@app.get("/")
-def root():
-    return {"status": "API OK"}
-
-# ============================================================
-# LOGIN
-# ============================================================
+# =====================================================
+# LOGIN (solo test per isolare problema)
+# =====================================================
 
 @app.post("/login")
-def login(data: LoginDTO, db: Session = Depends(db)):
+def login():
+    return {"token": "test"}
 
-    # ✅ SUPER ADMIN HARDCODED
-    if data.username == SUPERADMIN_USERNAME and data.password == SUPERADMIN_PASSWORD:
-        return {
-            "token": create_token({
-                "sub": "superadmin",
-                "tenant": "GLOBAL",
-                "role": "SUPER_ADMIN"
-            })
-        }
-
-    # ✅ UTENTE DB
-    user = db.query(User).filter(User.username == data.username).first()
-
-    if not user or not verify_pwd(data.password, user.password):
-        raise HTTPException(401)
-
-    return {
-        "token": create_token({
-            "sub": user.id,
-            "tenant": user.tenant_id,
-            "role": user.role
-        })
-    }
-
-# ============================================================
-# TENANTS (SUPER ADMIN)
-# ============================================================
-
-@app.get("/tenants")
-def tenants(db: Session = Depends(db), user=Depends(get_user)):
-
-    if not is_super_admin(user):
-        raise HTTPException(403)
-
-    return db.query(Tenant).all()
-
-# ============================================================
-# AZIENDE
-# ============================================================
-
-@app.get("/aziende")
-def aziende(db: Session = Depends(db), user=Depends(get_user)):
-
-    if is_super_admin(user):
-        data = db.query(Azienda).all()
-    else:
-        data = db.query(Azienda).filter(Azienda.tenant_id == user["tenant"])
-
-    return [
-        {"id": a.id, "nome": a.nome, "tenant_id": a.tenant_id}
-        for a in data
-    ]
-
-# ============================================================
-# START SERVER (FONDAMENTALE PER RAILWAY)
-# ============================================================
+# =====================================================
+# START (Railway)
+# =====================================================
 
 if __name__ == "__main__":
-    import uvicorn
     port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=port)
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+import os
+
+# =====================================================
+# APP
+# =====================================================
+
+app = FastAPI()
+
+# ✅ CORS (prima di tutto)
+app.add_middleware(
+    CORSMiddleware,
