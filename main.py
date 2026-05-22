@@ -190,7 +190,7 @@ def get_aziende(db: Session = Depends(db), user=Depends(get_user)):
         {"id": a.id, "nome": a.nome, "tenant_id": a.tenant_id}
         for a in data
     ]
-``
-if __name__ == "__main__":if __name__ == uvicorn
+if __name__ == "__main__":
+    import uvicorn
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run("main:app", host="0.0.0.0", port=port)
