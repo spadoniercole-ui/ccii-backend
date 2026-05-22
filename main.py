@@ -5,16 +5,19 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://cciiplatform.vercel.app"],
-    allow_credentials=True,
+    allow_origins=["*"],   # ✅ temporaneo per test assoluto
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+@app.get("/")
+def root():
+    return {"msg": "root works"}
+
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"msg": "health works"}
 
 @app.post("/login")
 def login():
-    return {"token": "test"}
+    return {"msg": "login works"}
