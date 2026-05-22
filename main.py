@@ -1,5 +1,5 @@
 # ============================================================
-# CCII SAAS PLATFORM COMPLETA + SUPER ADMIN
+# CCII SAAS PLATFORM COMPLETA + SUPER ADMIN HARDCODED
 # ============================================================
 
 import uuid, jwt, bcrypt, os
@@ -18,6 +18,9 @@ from pydantic import BaseModel
 SECRET = os.getenv("SECRET", "secret")
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./ccii.db")
 
+SUPERADMIN_USERNAME = "SuperAdmin"
+SUPERADMIN_PASSWORD = "CCIIWeb2.0"
+
 engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
@@ -34,7 +37,7 @@ class Tenant(Base):
     __tablename__ = "tenants"
     id = Column(String, primary_key=True)
     name = Column(String)
-    plan = Column(String)  # BASIC / PRO
+    plan = Column(String)
 
 
 class User(Base):
@@ -42,7 +45,7 @@ class User(Base):
     id = Column(String, primary_key=True)
     username = Column(String, unique=True)
     password = Column(String)
-    role = Column(String)  # SUPER_ADMIN / ADMIN / USER
+    role = Column(String)
     tenant_id = Column(String)
 
 
@@ -80,7 +83,6 @@ class ReportHistory(Base):
     score = Column(Float)
     giudizio = Column(String)
     timestamp = Column(String)
-
 
 Base.metadata.create_all(bind=engine)
 
@@ -126,19 +128,7 @@ def get_user(token: str = Header(...)):
         raise HTTPException(401)
 
 def is_super_admin(u):
-    return u["role"] == "SUPER_ADMIN"
-
-# ============================================================
-# PRICING
-# ============================================================
-
-def check_limit(db, tenant_id):
-
-    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
-    count = db.query(Azienda).filter(Azienda.tenant_id == tenant_id).count()
-
-    if tenant and tenant.plan == "BASIC" and count >= 3:
-        raise HTTPException(403, "Limite aziende piano BASIC")
+    return u.get("role") == "SUPER_ADMIN"
 
 # ============================================================
 # ENGINE
@@ -148,10 +138,10 @@ class Engine:
 
     def eval(self, v, op, t):
         return {
-            "<": v < t,
-            ">": v > t,
-            "<=": v <= t,
-            ">=": v >= t
+            "<": v<t,
+            ">": v>t,
+            "<=": v<=t,
+            ">=": v>=t
         }.get(op, False)
 
     def calcola(self, a, rules):
@@ -186,29 +176,30 @@ def db():
     finally: d.close()
 
 # ============================================================
-# SUPER ADMIN SETUP
+# LOGIN (SUPER ADMIN + NORMAL)
 # ============================================================
 
-@app.post("/setup-superadmin")
-def setup_superadmin(db: Session = Depends(db)):
+@app.post("/login")
+def login(data: LoginDTO, db: Session = Depends(db)):
 
-    existing = db.query(User).filter(User.role == "SUPER_ADMIN").first()
+    # ✅ SUPER ADMIN LOGIN (HARDCODED)
+    if data.username == SUPERADMIN_USERNAME and data.password == SUPERADMIN_PASSWORD:
+        token = jwt.encode({
+            "sub": "superadmin",
+            "tenant": "GLOBAL",
+            "role": "SUPER_ADMIN",
+            "exp": datetime.utcnow()+timedelta(hours=8)
+        }, SECRET, algorithm="HS256")
 
-    if existing:
-        return {"status": "already exists"}
+        return {"token": token}
 
-    user = User(
-        id=str(uuid.uuid4()),
-        username="admin",
-        password=hash_pwd("admin123"),
-        role="SUPER_ADMIN",
-        tenant_id="GLOBAL"
-    )
+    # ✅ NORMAL USER LOGIN
+    u = db.query(User).filter(User.username == data.username).first()
 
-    db.add(user)
-    db.commit()
+    if not u or not verify_pwd(data.password, u.password):
+        raise HTTPException(401)
 
-    return {"status": "created"}
+    return {"token": create_token(u)}
 
 # ============================================================
 # ONBOARDING
@@ -238,49 +229,19 @@ def onboarding(data: OnboardingDTO, db: Session = Depends(db)):
     return {"status":"created"}
 
 # ============================================================
-# LOGIN
-# ============================================================
-
-@app.post("/login")
-def login(data: LoginDTO, db: Session = Depends(db)):
-
-    u = db.query(User).filter(User.username == data.username).first()
-
-    if not u or not verify_pwd(data.password, u.password):
-        raise HTTPException(401)
-
-    return {"token":create_token(u)}
-
-# ============================================================
-# TENANT MANAGEMENT (SUPER ADMIN)
+# TENANTS (SUPER ADMIN)
 # ============================================================
 
 @app.get("/tenants")
-def get_tenants(db: Session = Depends(db), u=Depends(get_user)):
+def tenants(db: Session = Depends(db), u=Depends(get_user)):
 
     if not is_super_admin(u):
         raise HTTPException(403)
 
     return [
-        {"id":t.id,"name":t.name,"plan":t.plan}
+        {"id": t.id, "name": t.name, "plan": t.plan}
         for t in db.query(Tenant).all()
     ]
-
-@app.post("/tenant/{id}/plan")
-def change_plan(id: str, plan: str, db: Session = Depends(db), u=Depends(get_user)):
-
-    if not is_super_admin(u):
-        raise HTTPException(403)
-
-    t = db.query(Tenant).filter(Tenant.id == id).first()
-
-    if not t:
-        raise HTTPException(404)
-
-    t.plan = plan
-    db.commit()
-
-    return {"ok":True}
 
 # ============================================================
 # AZIENDE
@@ -290,21 +251,18 @@ def change_plan(id: str, plan: str, db: Session = Depends(db), u=Depends(get_use
 def aziende(db: Session = Depends(db), u=Depends(get_user)):
 
     if is_super_admin(u):
-        aziende = db.query(Azienda).all()
+        data = db.query(Azienda).all()
     else:
-        aziende = db.query(Azienda).filter(Azienda.tenant_id == u["tenant"])
+        data = db.query(Azienda).filter(Azienda.tenant_id == u["tenant"])
 
-    return [{"id":a.id,"nome":a.nome} for a in aziende]
+    return [{"id": a.id, "nome": a.nome} for a in data]
 
 # ------------------------------------------------------------
 
 @app.post("/azienda")
 def crea(data:dict, db:Session=Depends(db), u=Depends(get_user)):
 
-    if not is_super_admin(u):
-        check_limit(db, u["tenant"])
-
-    tenant_id = u["tenant"] if not is_super_admin(u) else data.get("tenant_id")
+    tenant_id = data.get("tenant_id") if is_super_admin(u) else u["tenant"]
 
     a = Azienda(
         id=str(uuid.uuid4()),
@@ -355,7 +313,7 @@ def report(id:str, db:Session=Depends(db), u=Depends(get_user)):
     db.commit()
 
     return {
-        "azienda":a.nome,
-        "score":s,
-        "giudizio":g
+        "azienda": a.nome,
+        "score": s,
+        "giudizio": g
     }
