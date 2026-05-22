@@ -1,5 +1,5 @@
 # ============================================================
-# CCII SAAS PLATFORM COMPLETA (FIX CORS + PRE-FLIGHT)
+# CCII SAAS PLATFORM FINAL (CORS + HEALTH + SUPER ADMIN)
 # ============================================================
 
 import uuid, jwt, bcrypt, os
@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 
 from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import create_engine, Column, String, Float, Integer
+from sqlalchemy import create_engine, Column, String, Float
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 from pydantic import BaseModel
 
@@ -86,7 +86,7 @@ def create_token(user):
         "sub": user.id,
         "tenant": user.tenant_id,
         "role": user.role,
-        "exp": datetime.utcnow()+timedelta(hours=8)
+        "exp": datetime.utcnow() + timedelta(hours=8)
     }, SECRET, algorithm="HS256")
 
 def get_user(token: str = None):
@@ -106,7 +106,7 @@ def is_super_admin(u):
 
 app = FastAPI()
 
-# ✅ CORS FIX CORRETTO
+# ✅ CORS CONFIG (FIX DEFINITIVO)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -117,18 +117,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ✅ FIX PRE-FLIGHT (RISOLVE 502)
+# ✅ FIX PRE-FLIGHT (evita 502)
 @app.options("/{full_path:path}")
 async def options_handler(request: Request):
     return {}
-
-# ============================================================
-# HEALTH CHECK
-# ============================================================
-
-@app.get("/health")
-def health():
-    return {"status": "ok"}
 
 # ============================================================
 # DB SESSION
@@ -140,24 +132,40 @@ def db():
     finally: d.close()
 
 # ============================================================
+# HEALTHCHECK (RAILWAY)
+# ============================================================
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+# ============================================================
+# ROOT TEST
+# ============================================================
+
+@app.get("/")
+def root():
+    return {"status": "API ONLINE"}
+
+# ============================================================
 # LOGIN
 # ============================================================
 
 @app.post("/login")
 def login(data: LoginDTO, db: Session = Depends(db)):
 
-    # ✅ SUPER ADMIN HARDCODED
+    # ✅ SUPER ADMIN
     if data.username == SUPERADMIN_USERNAME and data.password == SUPERADMIN_PASSWORD:
         token = jwt.encode({
             "sub": "superadmin",
             "tenant": "GLOBAL",
             "role": "SUPER_ADMIN",
-            "exp": datetime.utcnow()+timedelta(hours=8)
+            "exp": datetime.utcnow() + timedelta(hours=8)
         }, SECRET, algorithm="HS256")
 
         return {"token": token}
 
-    # ✅ USER NORMALE
+    # ✅ UTENTE NORMALE
     u = db.query(User).filter(User.username == data.username).first()
 
     if not u or not verify_pwd(data.password, u.password):
@@ -261,11 +269,3 @@ def crea(data: dict, db: Session = Depends(db), token=Depends(get_user)):
     db.commit()
 
     return {"ok": True}
-
-# ============================================================
-# TEST ROOT
-# ============================================================
-
-@app.get("/")
-def root():
-    return {"status": "API ONLINE"}
