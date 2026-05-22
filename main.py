@@ -1,10 +1,10 @@
-# ============================================================# =================================================II PLATFORM - VERSIONE STABILE (CORS FIX DEFINITIVO)
+# ============================================================# PLATFORM - VERSIONE DEFINITIVA (CORS STABILE)
 # ============================================================
 
 import uuid, jwt, bcrypt, os
 from datetime import datetime, timedelta
 
-from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, Column, String, Float
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
@@ -21,7 +21,7 @@ SUPERADMIN_USERNAME = "SuperAdmin"
 SUPERADMIN_PASSWORD = "CCIIWeb2.0"
 
 # ============================================================
-# DB
+# DATABASE
 # ============================================================
 
 engine = create_engine(
@@ -61,7 +61,7 @@ class Azienda(Base):
 Base.metadata.create_all(bind=engine)
 
 # ============================================================
-# DTO
+# SCHEMAS
 # ============================================================
 
 class LoginDTO(BaseModel):
@@ -69,24 +69,23 @@ class LoginDTO(BaseModel):
     password: str
 
 # ============================================================
-# AUTH
+# AUTH UTILS
 # ============================================================
 
 def hash_pwd(p): return bcrypt.hashpw(p.encode(), bcrypt.gensalt()).decode()
 def verify_pwd(p,h): return bcrypt.checkpw(p.encode(), h.encode())
 
-def create_token(payload):
+def create_token(payload: dict):
     return jwt.encode({
         **payload,
         "exp": datetime.utcnow() + timedelta(hours=8)
     }, SECRET, algorithm="HS256")
 
-def get_user(authorization: str = None):
-    if not authorization:
+def get_user(token: str = None):
+    if not token:
         raise HTTPException(401)
-
     try:
-        return jwt.decode(authorization, SECRET, algorithms=["HS256"])
+        return jwt.decode(token, SECRET, algorithms=["HS256"])
     except:
         raise HTTPException(401)
 
@@ -94,29 +93,19 @@ def is_super_admin(u):
     return u.get("role") == "SUPER_ADMIN"
 
 # ============================================================
-# APP
+# FASTAPI APP
 # ============================================================
 
 app = FastAPI()
 
-# ✅ CORS FIX DEFINITIVO (compatibile Vercel)
-
+# 🔥 CORS DEFINITIVO (QUESTO RISOLVE IL TUO ERRORE)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],          # ✅ permette tutto (debug)
-    allow_credentials=False,      # ✅ IMPORTANTISSIMO
+    allow_origins=["*"],        # ✅ in debug / produzione iniziale
     allow_methods=["*"],
     allow_headers=["*"],
+    allow_credentials=False    # ✅ ESSENZIALE per evitare conflitti browser
 )
-``
-
-
-
-# ✅ PRE-FLIGHT FIX# ✅@app.options("/{full_path:path}")
-async def options_handler():
-    return {}
-``
-
 
 # ============================================================
 # DB SESSION
@@ -124,8 +113,10 @@ async def options_handler():
 
 def db():
     d = SessionLocal()
-    try: yield d
-    finally: d.close()
+    try:
+        yield d
+    finally:
+        d.close()
 
 # ============================================================
 # HEALTHCHECK (RAILWAY)
@@ -141,7 +132,7 @@ def health():
 
 @app.get("/")
 def root():
-    return {"status": "API ONLINE"}
+    return {"status": "API OK"}
 
 # ============================================================
 # LOGIN
@@ -150,7 +141,7 @@ def root():
 @app.post("/login")
 def login(data: LoginDTO, db: Session = Depends(db)):
 
-    # ✅ SUPER ADMIN
+    # ✅ SUPER ADMIN HARDCODED
     if data.username == SUPERADMIN_USERNAME and data.password == SUPERADMIN_PASSWORD:
         token = create_token({
             "sub": "superadmin",
@@ -159,7 +150,7 @@ def login(data: LoginDTO, db: Session = Depends(db)):
         })
         return {"token": token}
 
-    # ✅ USER NORMALE
+    # ✅ NORMAL USER
     u = db.query(User).filter(User.username == data.username).first()
 
     if not u or not verify_pwd(data.password, u.password):
@@ -174,15 +165,13 @@ def login(data: LoginDTO, db: Session = Depends(db)):
     }
 
 # ============================================================
-# TENANTS (SUPER ADMIN)
+# TENANTS
 # ============================================================
 
 @app.get("/tenants")
-def tenants(db: Session = Depends(db), user=Depends(get_user)):
-
+def get_tenants(db: Session = Depends(db), user=Depends(get_user)):
     if not is_super_admin(user):
         raise HTTPException(403)
-
     return db.query(Tenant).all()
 
 # ============================================================
@@ -190,7 +179,7 @@ def tenants(db: Session = Depends(db), user=Depends(get_user)):
 # ============================================================
 
 @app.get("/aziende")
-def aziende(db: Session = Depends(db), user=Depends(get_user)):
+def get_aziende(db: Session = Depends(db), user=Depends(get_user)):
 
     if is_super_admin(user):
         data = db.query(Azienda).all()
@@ -201,3 +190,4 @@ def aziende(db: Session = Depends(db), user=Depends(get_user)):
         {"id": a.id, "nome": a.nome, "tenant_id": a.tenant_id}
         for a in data
     ]
+``
