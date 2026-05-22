@@ -2,5 +2,4 @@ fastapi
 uvpydanticuvicorn
 bcrypt
 PyJWT
-``
 sqlalchemy
