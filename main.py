@@ -1,5 +1,4 @@
-# ============================================================
-# CCII SAAS PLATFORM FINAL (CORS + HEALTH + SUPER ADMIN)
+# ============================================================# =================================================II PLATFORM - VERSIONE STABILE (CORS FIX DEFINITIVO)
 # ============================================================
 
 import uuid, jwt, bcrypt, os
@@ -22,7 +21,7 @@ SUPERADMIN_USERNAME = "SuperAdmin"
 SUPERADMIN_PASSWORD = "CCIIWeb2.0"
 
 # ============================================================
-# DATABASE
+# DB
 # ============================================================
 
 engine = create_engine(
@@ -69,11 +68,6 @@ class LoginDTO(BaseModel):
     username: str
     password: str
 
-class OnboardingDTO(BaseModel):
-    name: str
-    username: str
-    password: str
-
 # ============================================================
 # AUTH
 # ============================================================
@@ -81,19 +75,18 @@ class OnboardingDTO(BaseModel):
 def hash_pwd(p): return bcrypt.hashpw(p.encode(), bcrypt.gensalt()).decode()
 def verify_pwd(p,h): return bcrypt.checkpw(p.encode(), h.encode())
 
-def create_token(user):
+def create_token(payload):
     return jwt.encode({
-        "sub": user.id,
-        "tenant": user.tenant_id,
-        "role": user.role,
+        **payload,
         "exp": datetime.utcnow() + timedelta(hours=8)
     }, SECRET, algorithm="HS256")
 
-def get_user(token: str = None):
-    if not token:
+def get_user(authorization: str = None):
+    if not authorization:
         raise HTTPException(401)
+
     try:
-        return jwt.decode(token, SECRET, algorithms=["HS256"])
+        return jwt.decode(authorization, SECRET, algorithms=["HS256"])
     except:
         raise HTTPException(401)
 
@@ -106,18 +99,16 @@ def is_super_admin(u):
 
 app = FastAPI()
 
-# ✅ CORS CONFIG (FIX DEFINITIVO)
+# ✅ CORS FIX DEFINITIVO (compatibile Vercel)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://cciiplatform.vercel.app"
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],            # ✅ evita errori browser
     allow_methods=["*"],
     allow_headers=["*"],
+    allow_credentials=False,        # ✅ IMPORTANTISSIMO
 )
 
-# ✅ FIX PRE-FLIGHT (evita 502)
+# ✅ PRE-FLIGHT FIX
 @app.options("/{full_path:path}")
 async def options_handler(request: Request):
     return {}
@@ -140,7 +131,7 @@ def health():
     return {"status": "ok"}
 
 # ============================================================
-# ROOT TEST
+# ROOT
 # ============================================================
 
 @app.get("/")
@@ -156,116 +147,52 @@ def login(data: LoginDTO, db: Session = Depends(db)):
 
     # ✅ SUPER ADMIN
     if data.username == SUPERADMIN_USERNAME and data.password == SUPERADMIN_PASSWORD:
-        token = jwt.encode({
+        token = create_token({
             "sub": "superadmin",
             "tenant": "GLOBAL",
-            "role": "SUPER_ADMIN",
-            "exp": datetime.utcnow() + timedelta(hours=8)
-        }, SECRET, algorithm="HS256")
-
+            "role": "SUPER_ADMIN"
+        })
         return {"token": token}
 
-    # ✅ UTENTE NORMALE
+    # ✅ USER NORMALE
     u = db.query(User).filter(User.username == data.username).first()
 
     if not u or not verify_pwd(data.password, u.password):
         raise HTTPException(401)
 
-    return {"token": create_token(u)}
-
-# ============================================================
-# ONBOARDING
-# ============================================================
-
-@app.post("/onboarding")
-def onboarding(data: OnboardingDTO, db: Session = Depends(db)):
-
-    tenant = Tenant(
-        id=str(uuid.uuid4()),
-        name=data.name,
-        plan="BASIC"
-    )
-
-    user = User(
-        id=str(uuid.uuid4()),
-        username=data.username,
-        password=hash_pwd(data.password),
-        role="ADMIN",
-        tenant_id=tenant.id
-    )
-
-    db.add(tenant)
-    db.add(user)
-    db.commit()
-
-    return {"status": "created"}
+    return {
+        "token": create_token({
+            "sub": u.id,
+            "tenant": u.tenant_id,
+            "role": u.role
+        })
+    }
 
 # ============================================================
 # TENANTS (SUPER ADMIN)
 # ============================================================
 
 @app.get("/tenants")
-def tenants(db: Session = Depends(db), token=Depends(get_user)):
+def tenants(db: Session = Depends(db), user=Depends(get_user)):
 
-    if not is_super_admin(token):
+    if not is_super_admin(user):
         raise HTTPException(403)
 
-    return [
-        {"id": t.id, "name": t.name, "plan": t.plan}
-        for t in db.query(Tenant).all()
-    ]
-
-# ============================================================
-# CHANGE PLAN
-# ============================================================
-
-@app.post("/tenant/{id}/plan")
-def change_plan(id: str, plan: str, db: Session = Depends(db), token=Depends(get_user)):
-
-    if not is_super_admin(token):
-        raise HTTPException(403)
-
-    t = db.query(Tenant).filter(Tenant.id == id).first()
-
-    if not t:
-        raise HTTPException(404)
-
-    t.plan = plan.upper()
-    db.commit()
-
-    return {"ok": True}
+    return db.query(Tenant).all()
 
 # ============================================================
 # AZIENDE
 # ============================================================
 
 @app.get("/aziende")
-def aziende(db: Session = Depends(db), token=Depends(get_user)):
+def aziende(db: Session = Depends(db), user=Depends(get_user)):
 
-    if is_super_admin(token):
-        aziende = db.query(Azienda).all()
+    if is_super_admin(user):
+        data = db.query(Azienda).all()
     else:
-        aziende = db.query(Azienda).filter(Azienda.tenant_id == token["tenant"])
+        data = db.query(Azienda).filter(Azienda.tenant_id == user["tenant"])
 
     return [
         {"id": a.id, "nome": a.nome, "tenant_id": a.tenant_id}
-        for a in aziende
+        for a in data
     ]
-
-@app.post("/azienda")
-def crea(data: dict, db: Session = Depends(db), token=Depends(get_user)):
-
-    tenant_id = data.get("tenant_id") if is_super_admin(token) else token["tenant"]
-
-    a = Azienda(
-        id=str(uuid.uuid4()),
-        nome=data["nome"],
-        dscr=data["dscr"],
-        roe=data["roe"],
-        tenant_id=tenant_id
-    )
-
-    db.add(a)
-    db.commit()
-
-    return {"ok": True}
