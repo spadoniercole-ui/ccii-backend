@@ -1,10 +1,13 @@
-# ============================================================# PLATFORM - VERSIONE DEFINITIVA (CORS STABILE)
+# ============================================================# ========================================================= - VERSIONE STABILE FINALE (CORS OK)
 # ============================================================
 
-import uuid, jwt, bcrypt, os
+import os
+import uuid
+import jwt
+import bcrypt
 from datetime import datetime, timedelta
 
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, Column, String, Float
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
@@ -69,23 +72,24 @@ class LoginDTO(BaseModel):
     password: str
 
 # ============================================================
-# AUTH UTILS
+# AUTH
 # ============================================================
 
 def hash_pwd(p): return bcrypt.hashpw(p.encode(), bcrypt.gensalt()).decode()
-def verify_pwd(p,h): return bcrypt.checkpw(p.encode(), h.encode())
+def verify_pwd(p, h): return bcrypt.checkpw(p.encode(), h.encode())
 
-def create_token(payload: dict):
+def create_token(payload):
     return jwt.encode({
         **payload,
         "exp": datetime.utcnow() + timedelta(hours=8)
     }, SECRET, algorithm="HS256")
 
-def get_user(token: str = None):
-    if not token:
+def get_user(authorization: str = Header(None)):
+    if not authorization:
         raise HTTPException(401)
+
     try:
-        return jwt.decode(token, SECRET, algorithms=["HS256"])
+        return jwt.decode(authorization, SECRET, algorithms=["HS256"])
     except:
         raise HTTPException(401)
 
@@ -93,18 +97,20 @@ def is_super_admin(u):
     return u.get("role") == "SUPER_ADMIN"
 
 # ============================================================
-# FASTAPI APP
+# APP
 # ============================================================
 
 app = FastAPI()
 
-# 🔥 CORS DEFINITIVO (QUESTO RISOLVE IL TUO ERRORE)
+# ✅ CORS CORRETTO PER VERCEL
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],        # ✅ in debug / produzione iniziale
+    allow_origins=[
+        "https://cciiplatform.vercel.app"
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    allow_credentials=False    # ✅ ESSENZIALE per evitare conflitti browser
 )
 
 # ============================================================
@@ -112,14 +118,14 @@ app.add_middleware(
 # ============================================================
 
 def db():
-    d = SessionLocal()
+    session = SessionLocal()
     try:
-        yield d
+        yield session
     finally:
-        d.close()
+        session.close()
 
 # ============================================================
-# HEALTHCHECK (RAILWAY)
+# HEALTH CHECK (RAILWAY)
 # ============================================================
 
 @app.get("/health")
@@ -143,35 +149,38 @@ def login(data: LoginDTO, db: Session = Depends(db)):
 
     # ✅ SUPER ADMIN HARDCODED
     if data.username == SUPERADMIN_USERNAME and data.password == SUPERADMIN_PASSWORD:
-        token = create_token({
-            "sub": "superadmin",
-            "tenant": "GLOBAL",
-            "role": "SUPER_ADMIN"
-        })
-        return {"token": token}
+        return {
+            "token": create_token({
+                "sub": "superadmin",
+                "tenant": "GLOBAL",
+                "role": "SUPER_ADMIN"
+            })
+        }
 
-    # ✅ NORMAL USER
-    u = db.query(User).filter(User.username == data.username).first()
+    # ✅ UTENTE DB
+    user = db.query(User).filter(User.username == data.username).first()
 
-    if not u or not verify_pwd(data.password, u.password):
+    if not user or not verify_pwd(data.password, user.password):
         raise HTTPException(401)
 
     return {
         "token": create_token({
-            "sub": u.id,
-            "tenant": u.tenant_id,
-            "role": u.role
+            "sub": user.id,
+            "tenant": user.tenant_id,
+            "role": user.role
         })
     }
 
 # ============================================================
-# TENANTS
+# TENANTS (SUPER ADMIN)
 # ============================================================
 
 @app.get("/tenants")
-def get_tenants(db: Session = Depends(db), user=Depends(get_user)):
+def tenants(db: Session = Depends(db), user=Depends(get_user)):
+
     if not is_super_admin(user):
         raise HTTPException(403)
+
     return db.query(Tenant).all()
 
 # ============================================================
@@ -179,7 +188,7 @@ def get_tenants(db: Session = Depends(db), user=Depends(get_user)):
 # ============================================================
 
 @app.get("/aziende")
-def get_aziende(db: Session = Depends(db), user=Depends(get_user)):
+def aziende(db: Session = Depends(db), user=Depends(get_user)):
 
     if is_super_admin(user):
         data = db.query(Azienda).all()
@@ -190,6 +199,11 @@ def get_aziende(db: Session = Depends(db), user=Depends(get_user)):
         {"id": a.id, "nome": a.nome, "tenant_id": a.tenant_id}
         for a in data
     ]
+
+# ============================================================
+# START SERVER (FONDAMENTALE PER RAILWAY)
+# ============================================================
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
