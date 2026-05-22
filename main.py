@@ -100,18 +100,23 @@ def is_super_admin(u):
 app = FastAPI()
 
 # ✅ CORS FIX DEFINITIVO (compatibile Vercel)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],            # ✅ evita errori browser
+    allow_origins=["*"],          # ✅ permette tutto (debug)
+    allow_credentials=False,      # ✅ IMPORTANTISSIMO
     allow_methods=["*"],
     allow_headers=["*"],
-    allow_credentials=False,        # ✅ IMPORTANTISSIMO
 )
+``
 
-# ✅ PRE-FLIGHT FIX
-@app.options("/{full_path:path}")
-async def options_handler(request: Request):
+
+
+# ✅ PRE-FLIGHT FIX# ✅@app.options("/{full_path:path}")
+async def options_handler():
     return {}
+``
+
 
 # ============================================================
 # DB SESSION
