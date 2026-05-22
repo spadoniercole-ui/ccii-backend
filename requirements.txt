@@ -1,6 +1,6 @@
 fastapi
-uvicorn
-sqlalchemy
+uvpydanticuvicorn
 bcrypt
-pyjwt
-psycopg2-binary
+PyJWT
+``
+sqlalchemy
