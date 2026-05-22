@@ -1,10 +1,5 @@
-@app.get("/")
-def root():
-    return {"status": "API ONLINE"}
-
 # ============================================================
-# CCII SAAS PLATFORM - COMPLETE VERSION
-# onboarding + ruoli + pricing + multi-tenant
+# CCII SAAS PLATFORM COMPLETA + SUPER ADMIN
 # ============================================================
 
 import uuid, jwt, bcrypt, os
@@ -39,55 +34,53 @@ class Tenant(Base):
     __tablename__ = "tenants"
     id = Column(String, primary_key=True)
     name = Column(String)
-    plan = Column(String)        # BASIC / PRO
+    plan = Column(String)  # BASIC / PRO
 
-# -----------------------------
 
 class User(Base):
-    __tablename__="users"
-    id=Column(String, primary_key=True)
-    username=Column(String,unique=True)
-    password=Column(String)
-    role=Column(String)          # ADMIN / USER
-    tenant_id=Column(String)
+    __tablename__ = "users"
+    id = Column(String, primary_key=True)
+    username = Column(String, unique=True)
+    password = Column(String)
+    role = Column(String)  # SUPER_ADMIN / ADMIN / USER
+    tenant_id = Column(String)
 
-# -----------------------------
 
 class Azienda(Base):
-    __tablename__="aziende"
-    id=Column(String,primary_key=True)
-    nome=Column(String)
-    dscr=Column(Float)
-    roe=Column(Float)
-    tenant_id=Column(String)
+    __tablename__ = "aziende"
+    id = Column(String, primary_key=True)
+    nome = Column(String)
+    dscr = Column(Float)
+    roe = Column(Float)
+    tenant_id = Column(String)
 
-# -----------------------------
 
 class RuleSet(Base):
-    __tablename__="ruleset"
-    id=Column(String,primary_key=True)
-    tenant_id=Column(String)
-    version=Column(Integer)
+    __tablename__ = "ruleset"
+    id = Column(String, primary_key=True)
+    tenant_id = Column(String)
+    version = Column(Integer)
+
 
 class Rule(Base):
-    __tablename__="rules"
-    id=Column(String,primary_key=True)
-    ruleset_id=Column(String)
-    field=Column(String)
-    operator=Column(String)
-    value=Column(Float)
-    result=Column(String)
-    priority=Column(Integer)
+    __tablename__ = "rules"
+    id = Column(String, primary_key=True)
+    ruleset_id = Column(String)
+    field = Column(String)
+    operator = Column(String)
+    value = Column(Float)
+    result = Column(String)
+    priority = Column(Integer)
 
-# -----------------------------
 
 class ReportHistory(Base):
-    __tablename__="history"
-    id=Column(String,primary_key=True)
-    azienda_id=Column(String)
-    score=Column(Float)
-    giudizio=Column(String)
-    timestamp=Column(String)
+    __tablename__ = "history"
+    id = Column(String, primary_key=True)
+    azienda_id = Column(String)
+    score = Column(Float)
+    giudizio = Column(String)
+    timestamp = Column(String)
+
 
 Base.metadata.create_all(bind=engine)
 
@@ -132,17 +125,19 @@ def get_user(token: str = Header(...)):
     except:
         raise HTTPException(401)
 
+def is_super_admin(u):
+    return u["role"] == "SUPER_ADMIN"
+
 # ============================================================
-# PRICING LOGIC
+# PRICING
 # ============================================================
 
 def check_limit(db, tenant_id):
 
     tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
-
     count = db.query(Azienda).filter(Azienda.tenant_id == tenant_id).count()
 
-    if tenant.plan == "BASIC" and count >= 3:
+    if tenant and tenant.plan == "BASIC" and count >= 3:
         raise HTTPException(403, "Limite aziende piano BASIC")
 
 # ============================================================
@@ -153,10 +148,10 @@ class Engine:
 
     def eval(self, v, op, t):
         return {
-            "<": v<t,
-            ">": v>t,
-            "<=": v<=t,
-            ">=": v>=t
+            "<": v < t,
+            ">": v > t,
+            "<=": v <= t,
+            ">=": v >= t
         }.get(op, False)
 
     def calcola(self, a, rules):
@@ -191,7 +186,32 @@ def db():
     finally: d.close()
 
 # ============================================================
-# ONBOARDING CLIENTE
+# SUPER ADMIN SETUP
+# ============================================================
+
+@app.post("/setup-superadmin")
+def setup_superadmin(db: Session = Depends(db)):
+
+    existing = db.query(User).filter(User.role == "SUPER_ADMIN").first()
+
+    if existing:
+        return {"status": "already exists"}
+
+    user = User(
+        id=str(uuid.uuid4()),
+        username="admin",
+        password=hash_pwd("admin123"),
+        role="SUPER_ADMIN",
+        tenant_id="GLOBAL"
+    )
+
+    db.add(user)
+    db.commit()
+
+    return {"status": "created"}
+
+# ============================================================
+# ONBOARDING
 # ============================================================
 
 @app.post("/onboarding")
@@ -232,29 +252,66 @@ def login(data: LoginDTO, db: Session = Depends(db)):
     return {"token":create_token(u)}
 
 # ============================================================
+# TENANT MANAGEMENT (SUPER ADMIN)
+# ============================================================
+
+@app.get("/tenants")
+def get_tenants(db: Session = Depends(db), u=Depends(get_user)):
+
+    if not is_super_admin(u):
+        raise HTTPException(403)
+
+    return [
+        {"id":t.id,"name":t.name,"plan":t.plan}
+        for t in db.query(Tenant).all()
+    ]
+
+@app.post("/tenant/{id}/plan")
+def change_plan(id: str, plan: str, db: Session = Depends(db), u=Depends(get_user)):
+
+    if not is_super_admin(u):
+        raise HTTPException(403)
+
+    t = db.query(Tenant).filter(Tenant.id == id).first()
+
+    if not t:
+        raise HTTPException(404)
+
+    t.plan = plan
+    db.commit()
+
+    return {"ok":True}
+
+# ============================================================
 # AZIENDE
 # ============================================================
 
 @app.get("/aziende")
 def aziende(db: Session = Depends(db), u=Depends(get_user)):
-    return [
-        {"id":a.id,"nome":a.nome}
-        for a in db.query(Azienda).filter(Azienda.tenant_id == u["tenant"])
-    ]
 
-# -----------------------------
+    if is_super_admin(u):
+        aziende = db.query(Azienda).all()
+    else:
+        aziende = db.query(Azienda).filter(Azienda.tenant_id == u["tenant"])
+
+    return [{"id":a.id,"nome":a.nome} for a in aziende]
+
+# ------------------------------------------------------------
 
 @app.post("/azienda")
 def crea(data:dict, db:Session=Depends(db), u=Depends(get_user)):
 
-    check_limit(db, u["tenant"])
+    if not is_super_admin(u):
+        check_limit(db, u["tenant"])
 
-    a=Azienda(
+    tenant_id = u["tenant"] if not is_super_admin(u) else data.get("tenant_id")
+
+    a = Azienda(
         id=str(uuid.uuid4()),
         nome=data["nome"],
         dscr=data["dscr"],
         roe=data["roe"],
-        tenant_id=u["tenant"]
+        tenant_id=tenant_id
     )
 
     db.add(a)
@@ -263,49 +320,28 @@ def crea(data:dict, db:Session=Depends(db), u=Depends(get_user)):
     return {"ok":True}
 
 # ============================================================
-# RULES VERSIONING
-# ============================================================
-
-@app.post("/ruleset")
-def set_rules(rules:list[RuleDTO], db:Session=Depends(db), u=Depends(get_user)):
-
-    count=db.query(RuleSet).filter(RuleSet.tenant_id==u["tenant"]).count()
-
-    rs=RuleSet(id=str(uuid.uuid4()),tenant_id=u["tenant"],version=count+1)
-    db.add(rs)
-
-    for r in rules:
-        db.add(Rule(
-            id=str(uuid.uuid4()),
-            ruleset_id=rs.id,
-            field=r.field,
-            operator=r.operator,
-            value=r.value,
-            result=r.result,
-            priority=r.priority
-        ))
-
-    db.commit()
-
-    return {"version":count+1}
-
-# ============================================================
 # REPORT
 # ============================================================
 
 @app.get("/report/{id}")
 def report(id:str, db:Session=Depends(db), u=Depends(get_user)):
 
-    a=db.query(Azienda).filter(
-        Azienda.id==id,
-        Azienda.tenant_id==u["tenant"]
-    ).first()
+    query = db.query(Azienda).filter(Azienda.id == id)
 
-    rs=db.query(RuleSet).filter(
-        RuleSet.tenant_id==u["tenant"]
-    ).order_by(RuleSet.version.desc()).first()
+    if not is_super_admin(u):
+        query = query.filter(Azienda.tenant_id == u["tenant"])
 
-    rules = db.query(Rule).filter(Rule.ruleset_id==rs.id).all() if rs else []
+    a = query.first()
+
+    if not a:
+        raise HTTPException(404)
+
+    rs = db.query(RuleSet)\
+        .filter(RuleSet.tenant_id == a.tenant_id)\
+        .order_by(RuleSet.version.desc())\
+        .first()
+
+    rules = db.query(Rule).filter(Rule.ruleset_id == rs.id).all() if rs else []
 
     s,g = Engine().calcola(a, rules)
 
