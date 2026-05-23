@@ -180,15 +180,25 @@ class LicenzaCreate(BaseModel):
 
 # --- ENDPOINTS INTERFACCIA E API ---
 
-# 🌐 Caricamento visivo dell'interfaccia grafica
 @app.get("/", response_class=HTMLResponse)
 def home():
-    try:
-        with open("templates/index.html", "r", encoding="utf-8") as f:
-            return f.read()
-    except FileNotFoundError:
-        return "<h3>Errore: File 'templates/index.html' non trovato. Assicurati di aver creato la cartella e il file correttamente.</h3>"
-
+    # Iniettiamo direttamente il nuovo codice con la barra laterale scura
+    return """
+    <!DOCTYPE html>
+    <html lang="it">
+    <head>
+        <meta charset="UTF-8">
+        <title>Super Admin Dashboard - CCII Web 2.0</title>
+        <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    </head>
+    <body class="bg-slate-50 text-slate-800 font-sans b-block">
+        <div class="p-8">
+            <h1 class="text-2xl font-bold text-indigo-600">Nuova Dashboard HARDCODED</h1>
+            <p class="text-sm text-slate-600 mt-2">Se vedi questa scritta, il backend si è aggiornato correttamente!</p>
+        </div>
+    </body>
+    </html>
+    """
 # 1. Configurazione Menu Dashboard Super Admin
 @app.get("/superadmin/menu")
 def get_superadmin_menu():
