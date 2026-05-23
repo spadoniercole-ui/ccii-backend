@@ -1,8 +1,12 @@
 from sqlalchemy import Column, Integer, String, Date, ForeignKey, Enum, Table
-from sqlalchemy.orm import relationship, declarative_base
+from sqlalchemy.orm import relationship
 import enum
 
-Base = declarative_base()
+# Importiamo la Base direttamente dal nuovo file database.py 🔗
+from database import Base 
+
+# --- TABELLE DI GIUNZIONE (MANY-TO-MANY) PER I PROFILI ---
+# ... tutto il resto del file rimane esattamente identico ...
 
 # --- TABELLE DI GIUNZIONE (MANY-TO-MANY) PER I PROFILI ---
 
