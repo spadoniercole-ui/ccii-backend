@@ -16,25 +16,22 @@ app = FastAPI(
 
 # --- ROTTE DELL'APPLICAZIONE (ENDPOINTS) ---
 
+# --- ROTTE DELL'APPLICAZIONE (ENDPOINTS) ---
+
 @app.get("/")
 def home():
-    """Rotta di controllo per verificare che il server sia attivo 🌐"""
     return {"status": "running", "message": "API Spazi funzionante correttamente"}
 
 @app.get("/spazi/{spazio_id}")
 def leggi_spazio(spazio_id: int, db: Session = Depends(get_db)):
-    """
-    Recupera i dettagli di uno spazio specifico tramite il suo ID 📊
-    """
-    # Eseguiamo la query sul database usando SQLAlchemy
+    # Corretto: usiamo spazio_id per filtrare 🔍
     spazio = db.query(Spazio).filter(Spazio.id == spazio_id).first()
     
-    # Se lo spazio non esiste, restituiamo un errore 404 🚫
     if spazio is None:
         raise HTTPException(status_code=404, detail="Spazio non trovato")
         
     return {
-        "id":空间 = spazio.id,
+        "id": spazio.id,
         "licenza_id": spazio.licenza_id,
         "nome_spazio": spazio.nome_spazio,
         "tipologia": spazio.tipologia
