@@ -190,7 +190,16 @@ def home():
 # 🟢 NUOVO: Rotta temporanea di compatibilità per il vecchio frontend
 @app.get("/tenants")
 def get_old_tenants():
-    return []
+    # Restituiamo un record di test strutturato per vedere se il frontend lo renderizza
+    return [
+        {
+            "id": 1,
+            "nome_spazio": "Studio Test Integrazione",
+            "tipologia": "Studio Professionale",
+            "max_utenti": 5,
+            "max_aziende": 10
+        }
+    ]
 
 @app.get("/superadmin/menu")
 def get_superadmin_menu():
