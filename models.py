@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -16,13 +16,19 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     role_id = Column(Integer, ForeignKey("roles.id"))
+    
+    # 🔐 Campo per la scadenza della password (gestito nel login)
+    data_scadenza_password = Column(DateTime, nullable=True)
+
     role = relationship("Role", back_populates="users")
 
-# 🏢 Nuova classe Spazio allineata con le tue API
 class Spazio(Base):
     __tablename__ = "spazi"
 
     id = Column(Integer, primary_key=True, index=True)
     licenza_id = Column(Integer, nullable=True)
     nome_spazio = Column(String, nullable=True)
-    tipologia = Column(String, nullable=True) # 👈 Colonna creata per accogliere il dato
+    tipologia = Column(String, nullable=True) # 👈 Colonna per non stravolgere l'impostazione
+    
+    # 🗓️ Campo per la scadenza della licenza (gestito nel login)
+    data_scadenza_licenza = Column(DateTime, nullable=True)
