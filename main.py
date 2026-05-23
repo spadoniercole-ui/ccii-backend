@@ -1,10 +1,11 @@
 import os
 import base64
 import json
+from datetime import date
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse  # 👈 Importato per servire la pagina HTML
 from pydantic import BaseModel, Field
-from datetime import date
 from sqlalchemy import create_engine, Column, Integer, String, Date, Boolean, ForeignKey, Table
 from sqlalchemy.orm import relationship, declarative_base, sessionmaker, Session
 from passlib.context import CryptContext
@@ -177,11 +178,16 @@ class LicenzaCreate(BaseModel):
     max_aziende_totali: int = Field(..., gte=1)
     data_scadenza: date
 
-# --- ENDPOINTS API ---
+# --- ENDPOINTS INTERFACCIA E API ---
 
-@app.get("/health")
-def health():
-    return {"status": "ok"}
+# 🌐 Caricamento visivo dell'interfaccia grafica
+@app.get("/", response_class=HTMLResponse)
+def home():
+    try:
+        with open("templates/index.html", "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return "<h3>Errore: File 'templates/index.html' non trovato. Assicurati di aver creato la cartella e il file correttamente.</h3>"
 
 # 1. Configurazione Menu Dashboard Super Admin
 @app.get("/superadmin/menu")
