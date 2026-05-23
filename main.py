@@ -1,67 +1,41 @@
-from fastapi import FastAPI, Depends
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
-from models import Spazi, get_db  # Assicurati che il nome corrisponda al modello nel tuo models.py
 
-app = FastAPI(title="Backend CCII")
+# Importiamo i componenti necessari dagli altri moduli del progetto 📦
+from database import engine, Base, get_db
+from models import Spazio
 
-# Configurazione CORS per permettere al frontend di comunicare con il backend
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+# Creiamo le tabelle nel database se non esistono ancora (utile su Railway) 🛠️
+Base.metadata.create_all(bind=engine)
+
+app = FastAPI(
+    title="Gestione Spazi API",
+    description="API per la gestione delle licenze e degli spazi di lavoro",
+    version="1.0.0"
 )
 
+# --- ROTTE DELL'APPLICAZIONE (ENDPOINTS) ---
+
 @app.get("/")
-def read_root():
-    return {"status": "active", "message": "Backend CCII attivo (Modalità Isolata)"}
+def home():
+    """Rotta di controllo per verificare che il server sia attivo 🌐"""
+    return {"status": "running", "message": "API Spazi funzionante correttamente"}
 
-@app.post("/login")
-def login_user():
-    # Rotta temporanea di login per permettere l'accesso alla dashboard
-    return {"status": "success", "token": "mock-token-superadmin"}
-
-@app.get("/tenants")
-def get_old_tenants(db: Session = Depends(get_db)):
-    try:
-        # 1. Lettura dei record reali dal database
-        record_spazi = db.query(Spazi).all()
+@app.get("/spazi/{spazio_id}")
+def leggi_spazio(spazio_id: int, db: Session = Depends(get_db)):
+    """
+    Recupera i dettagli di uno spazio specifico tramite il suo ID 📊
+    """
+    # Eseguiamo la query sul database usando SQLAlchemy
+    spazio = db.query(Spazio).filter(Spazio.id == spazio_id).first()
+    
+    # Se lo spazio non esiste, restituiamo un errore 404 🚫
+    if spazio is None:
+        raise HTTPException(status_code=404, detail="Spazio non trovato")
         
-        # 2. Inizializziamo la lista per il frontend
-        risposta_frontend = []
-        
-        # 3. Ciclo per popolare la risposta con tutte le chiavi possibili per il frontend
-        for s in record_spazi:
-            risposta_frontend.append({
-                # Dati base dello spazio
-                "id": str(s.id),
-                "nome": s.nome,
-                "codice": s.codice,
-                "attivo": s.attivo,
-                
-                # Varianti per il Nome dello Spazio (Risolve l'errore N/D)
-                "nome_spazio": s.nome,
-                "nomeSpazio": s.nome,
-                "tenant_name": s.nome,
-                "name": s.nome,
-                
-                # Varianti per il Limite Utenti
-                "max_utenti_totali": 3,
-                "max_utenti": 3,
-                "max_users": 3,
-                "limite_utenti": 3,
-                
-                # Varianti per il Limite Aziende
-                "max_aziende_totali": 3,
-                "max_aziende": 3,
-                "max_companies": 3,
-                "limite_aziende": 3
-            })
-            
-        return risposta_frontend
-
-    except Exception as e:
-        print(f"Errore durante la query dei tenants: {e}")
-        return []
+    return {
+        "id":空间 = spazio.id,
+        "licenza_id": spazio.licenza_id,
+        "nome_spazio": spazio.nome_spazio,
+        "tipologia": spazio.tipologia
+    }
