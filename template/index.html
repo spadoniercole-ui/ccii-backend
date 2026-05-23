@@ -3,25 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Super Admin Dashboard - CCII Web</title>
+    <title>Super Admin Dashboard - CCII Web 2.0</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
-        /* Stile per gestire lo scorrimento indipendente del menu e del contenuto */
-        .scroll-custom::-webkit-scrollbar {
-            width: 6px;
-        }
-        .scroll-custom::-webkit-scrollbar-thumb {
-            background-color: #cbd5e1;
-            border-radius: 3px;
-        }
+        .scroll-custom::-webkit-scrollbar { width: 6px; }
+        .scroll-custom::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 3px; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen block">
 
     <table class="w-full h-screen border-collapse table-fixed">
         <tr>
-            <td class="w-[280px] bg-slate-900 text-slate-300 valign-top h-full border-r border-slate-800">
+            <td class="w-[280px] bg-slate-900 text-slate-300 align-top h-full border-r border-slate-800">
                 <div class="h-screen flex flex-col justify-between">
+                    
                     <div class="p-5 border-b border-slate-800 bg-slate-950">
                         <h1 class="text-white font-bold text-lg tracking-wide uppercase">CCII Web 2.0</h1>
                         <p class="text-xs text-slate-500 mt-1">Pannello Super Admin</p>
@@ -72,22 +67,22 @@
                     </div>
 
                     <div class="p-4 border-t border-slate-800 bg-slate-950 text-xs text-slate-400">
-                        Connesso come: <span class="text-amber-400 font-medium">SuperAdmin</span>
+                        Utente: <span class="text-amber-400 font-medium">SuperAdmin</span>
                     </div>
                 </div>
             </td>
 
-            <td class="valign-top bg-slate-50 h-full overflow-y-auto p-8 scroll-custom">
+            <td class="align-top bg-slate-50 h-full overflow-y-auto p-8 scroll-custom">
                 
                 <div class="mb-6">
-                    <h2 id="titolo-sezione" class="text-2xl font-bold text-slate-900">Benvenuto nella Dashboard</h2>
-                    <p id="descrizione-sezione" class="text-sm text-slate-500 mt-1">Seleziona una voce dal menu laterale per iniziare a configurare il sistema.</p>
+                    <h2 id="titolo-sezione" class="text-2xl font-bold text-slate-900">Pannello di Controllo</h2>
+                    <p id="descrizione-sezione" class="text-sm text-slate-500 mt-1">Seleziona una voce dal menu laterale per interagire con il database.</p>
                 </div>
 
                 <div id="area-contenuto">
                     
                     <div id="view-home" class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-                        <p class="text-slate-600">Questo pannello ti permette di popolare e gestire le relazioni del database in tempo reale.</p>
+                        <p class="text-slate-600">Seleziona una voce a sinistra per iniziare il popolamento dei dati.</p>
                     </div>
 
                     <div id="view-licenze" class="hidden space-y-6">
@@ -99,13 +94,12 @@
                         </div>
 
                         <div id="subview-licenze-elenco" class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-                            <p class="text-sm text-slate-500">Qui appariranno le licenze caricate dal database.</p>
-                        </div>
+                            </div>
 
                         <div id="subview-licenze-nuovo" class="hidden bg-white border border-slate-200 rounded-xl p-6 shadow-sm max-w-2xl">
                             <form id="form-licenza" class="space-y-4" onsubmit="salvaLicenza(event)">
                                 <div>
-                                    <label class="block text-sm font-medium text-slate-700">Intestatario / Studio</label>
+                                    <label class="block text-sm font-medium text-slate-700">Intestatario / Studio Professionale</label>
                                     <input type="text" id="lic-intestatario" required class="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
                                 </div>
                                 <div class="grid grid-cols-3 gap-4">
@@ -114,11 +108,11 @@
                                         <input type="number" id="lic-spazi" value="1" min="1" required class="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-slate-700">Max Utenti</label>
+                                        <label class="block text-sm font-medium text-slate-700">Max Utenti Totali</label>
                                         <input type="number" id="lic-utenti" value="3" min="1" required class="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-slate-700">Max Aziende</label>
+                                        <label class="block text-sm font-medium text-slate-700">Max Aziende Totali</label>
                                         <input type="number" id="lic-aziende" value="5" min="1" required class="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
                                     </div>
                                 </div>
@@ -132,7 +126,7 @@
                     </div>
 
                     <div id="view-placeholder" class="hidden bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-                        <p class="text-slate-600">Schermata di configurazione in fase di attivazione sul database.</p>
+                        <p class="text-slate-500 italic">Interfaccia in fase di collegamento con le rotte del database.</p>
                     </div>
 
                 </div>
@@ -141,150 +135,141 @@
     </table>
 
     <script>
-        // Gestione dei titoli e delle descrizioni delle macroaree
-const infoSezioni = {
-    'anagrafica-utenti': { t: 'Anagrafica Utenti', d: 'Gestione e censimento degli utenti legati ai vari spazi.' },
-    'anagrafica-spazi': { t: 'Anagrafica Spazi', d: 'Configurazione degli ambienti di lavoro (studi, aziende).' },
-    'config-xbrl': { t: 'Configurazione XBRL', d: 'Mappatura dei nodi XBRL internazionali con il piano dei conti.' },
-    'config-istat': { t: 'Configurazione ISTAT', d: 'Caricamento e gestione dei benchmark settoriali ATECO.' },
-    'checklist': { t: 'Check List Adeguati Assetti', d: 'Definizione dei quesiti qualitativi e dei relativi pesi.' },
-    'indici': { t: 'Indici di Bilancio', d: 'Impostazione delle soglie di allarme quantitative per settore.' },
-    'report': { t: 'Modelli di Report', d: 'Configurazione dei modelli di esportazione dei dati finanziari.' },
-    'tipologia-utente': { t: 'Tipologia Utente', d: 'Dizionario dei ruoli di sistema e dei livelli di accesso.' },
-    'profilo-xbrl': { t: 'Profilo XBRL', d: 'Associazioni di importazione dei file di bilancio.' },
-    'licenze': { t: 'Gestione Licenze', d: 'Assegnazione e controllo dei tetti massimi operativi dei clienti.' }
-};
+        const infoSezioni = {
+            'anagrafica-utenti': { t: 'Anagrafica Utenti', d: 'Gestione e censimento degli utenti legati ai vari spazi.' },
+            'anagrafica-spazi': { t: 'Anagrafica Spazi', d: 'Configurazione degli ambienti di lavoro (studi, aziende).' },
+            'config-xbrl': { t: 'Configurazione XBRL', d: 'Mappatura dei nodi XBRL internazionali con il piano dei conti.' },
+            'config-istat': { t: 'Configurazione ISTAT', d: 'Caricamento e gestione dei benchmark settoriali ATECO.' },
+            'checklist': { t: 'Check List Adeguati Assetti', d: 'Definizione dei quesiti qualitativi e dei relativi pesi.' },
+            'indici': { t: 'Indici di Bilancio', d: 'Impostazione delle soglie di allarme quantitative per settore.' },
+            'report': { t: 'Modelli di Report', d: 'Configurazione dei modelli di esportazione dei dati finanziari.' },
+            'tipologia-utente': { t: 'Tipologia Utente', d: 'Dizionario dei ruoli di sistema e dei livelli di accesso.' },
+            'profilo-xbrl': { t: 'Profilo XBRL', d: 'Associazioni di importazione dei file di bilancio.' },
+            'licenze': { t: 'Gestione Licenze', d: 'Assegnazione e controllo dei tetti massimi operativi dei clienti.' }
+        };
 
-// Funzione principale di navigazione del menu laterale
-function naviga(sezione) {
-    document.querySelectorAll('nav, ul button').forEach(b => b.classList.remove('bg-slate-800', 'text-white'));
-    
-    const btn = document.getElementById(`btn-${sezione}`);
-    if(btn) btn.classList.add('bg-slate-800', 'text-white');
+        function naviga(sezione) {
+            document.querySelectorAll('ul button').forEach(b => b.classList.remove('bg-slate-800', 'text-white'));
+            
+            const btn = document.getElementById(`btn-${sezione}`);
+            if(btn) btn.classList.add('bg-slate-800', 'text-white');
 
-    document.getElementById('titolo-sezione').innerText = infoSezioni[sezione].t;
-    document.getElementById('descrizione-sezione').innerText = infoSezioni[sezione].d;
+            document.getElementById('titolo-sezione').innerText = infoSezioni[sezione].t;
+            document.getElementById('descrizione-sezione').innerText = infoSezioni[sezione].d;
 
-    document.getElementById('view-home').classList.add('hidden');
-    document.getElementById('view-licenze').classList.add('hidden');
-    document.getElementById('view-placeholder').classList.add('hidden');
+            document.getElementById('view-home').classList.add('hidden');
+            document.getElementById('view-licenze').classList.add('hidden');
+            document.getElementById('view-placeholder').classList.add('hidden');
 
-    if (sezione === 'licenze') {
-        document.getElementById('view-licenze').classList.remove('hidden');
-        cambiaTab('licenze', 'elenco');
-    } else {
-        document.getElementById('view-placeholder').classList.remove('hidden');
-    }
-}
-
-// Gestione dei pannelli a Tab (Elenco / Nuovo)
-function cambiaTab(sezione, tab) {
-    const tabElenco = document.getElementById(`tab-${sezione}-elenco`);
-    const tabNuovo = document.getElementById(`tab-${sezione}-nuovo`);
-    const subElenco = document.getElementById(`subview-${sezione}-elenco`);
-    const subNuovo = document.getElementById(`subview-${sezione}-nuovo`);
-
-    if (tab === 'elenco') {
-        tabElenco.className = "border-b-2 border-indigo-600 py-2 px-1 text-sm font-medium text-indigo-600";
-        tabNuovo.className = "border-b-2 border-transparent py-2 px-1 text-sm font-medium text-slate-500 hover:text-slate-700 hover:border-slate-300";
-        subElenco.classList.remove('hidden');
-        subNuovo.classList.add('hidden');
-        
-        // Se siamo su licenze, carichiamo i dati aggiornati dal database
-        if (sezione === 'licenze') {
-            caricaLicenzeDalDB();
-        }
-    } else {
-        tabNuovo.className = "border-b-2 border-indigo-600 py-2 px-1 text-sm font-medium text-indigo-600";
-        tabElenco.className = "border-b-2 border-transparent py-2 px-1 text-sm font-medium text-slate-500 hover:text-slate-700 hover:border-slate-300";
-        subNuovo.classList.remove('hidden');
-        subElenco.classList.add('hidden');
-    }
-}
-
-// 🟢 FUNZIONE INTEGRATA: Recupera le licenze e le mostra a schermo
-async function caricaLicenzeDalDB() {
-    const contenitore = document.getElementById('subview-licenze-elenco');
-    
-    try {
-        const response = await fetch('/superadmin/licenze');
-        const licenze = await response.json();
-
-        if (licenze.length === 0) {
-            contenitore.innerHTML = `<p class="text-sm text-slate-500 bg-slate-50 p-4 rounded border border-dashed border-slate-200">Nessuna licenza presente nel database. Vai sulla tab "Nuova Licenza" per creare la prima.</p>`;
-            return;
+            if (sezione === 'licenze') {
+                document.getElementById('view-licenze').classList.remove('hidden');
+                cambiaTab('licenze', 'elenco');
+            } else {
+                document.getElementById('view-placeholder').classList.remove('hidden');
+            }
         }
 
-        // Costruzione della tabella grafica dei dati
-        let htmlTabella = `
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse text-sm">
-                    <thead>
-                        <tr class="border-b border-slate-200 bg-slate-50 text-slate-600 font-semibold">
-                            <th class="p-3">ID</th>
-                            <th class="p-3">Intestatario</th>
-                            <th class="p-3 text-center">Max Spazi</th>
-                            <th class="p-3 text-center">Max Utenti</th>
-                            <th class="p-3 text-center">Max Aziende</th>
-                            <th class="p-3">Scadenza</th>
+        function cambiaTab(sezione, tab) {
+            const tabElenco = document.getElementById(`tab-${sezione}-elenco`);
+            const tabNuovo = document.getElementById(`tab-${sezione}-nuovo`);
+            const subElenco = document.getElementById(`subview-${sezione}-elenco`);
+            const subNuovo = document.getElementById(`subview-${sezione}-nuovo`);
+
+            if (tab === 'elenco') {
+                tabElenco.className = "border-b-2 border-indigo-600 py-2 px-1 text-sm font-medium text-indigo-600";
+                tabNuovo.className = "border-b-2 border-transparent py-2 px-1 text-sm font-medium text-slate-500 hover:text-slate-700 hover:border-slate-300";
+                subElenco.classList.remove('hidden');
+                subNuovo.classList.add('hidden');
+                
+                if (sezione === 'licenze') caricaLicenzeDalDB();
+            } else {
+                tabNuovo.className = "border-b-2 border-indigo-600 py-2 px-1 text-sm font-medium text-indigo-600";
+                tabElenco.className = "border-b-2 border-transparent py-2 px-1 text-sm font-medium text-slate-500 hover:text-slate-700 hover:border-slate-300";
+                subNuovo.classList.remove('hidden');
+                subElenco.classList.add('hidden');
+            }
+        }
+
+        async function caricaLicenzeDalDB() {
+            const contenitore = document.getElementById('subview-licenze-elenco');
+            try {
+                const response = await fetch('/superadmin/licenze');
+                const licenze = await response.json();
+
+                if (!response.ok) {
+                    throw new Error('Errore nel recupero dati');
+                }
+
+                if (licenze.length === 0) {
+                    contenitore.innerHTML = `<p class="text-sm text-slate-500 bg-slate-50 p-4 rounded border border-dashed border-slate-200">Nessuna licenza presente nel database. Vai sulla tab "Nuova Licenza" per creare la prima.</p>`;
+                    return;
+                }
+
+                let htmlTabella = `
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-sm">
+                            <thead>
+                                <tr class="border-b border-slate-200 bg-slate-50 text-slate-600 font-semibold">
+                                    <th class="p-3">ID</th>
+                                    <th class="p-3">Intestatario</th>
+                                    <th class="p-3 text-center">Max Spazi</th>
+                                    <th class="p-3 text-center">Max Utenti</th>
+                                    <th class="p-3 text-center">Max Aziende</th>
+                                    <th class="p-3">Scadenza</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                `;
+
+                licenze.forEach(lic => {
+                    htmlTabella += `
+                        <tr class="hover:bg-slate-50 text-slate-700 transition">
+                            <td class="p-3 font-medium text-indigo-600">#${lic.id}</td>
+                            <td class="p-3 font-semibold">${lic.intestatario}</td>
+                            <td class="p-3 text-center">${lic.max_spazi}</td>
+                            <td class="p-3 text-center">${lic.max_utenti_totali}</td>
+                            <td class="p-3 text-center">${lic.max_aziende_totali}</td>
+                            <td class="p-3 text-slate-500">${new Date(lic.data_scadenza).toLocaleDateString('it-IT')}</td>
                         </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-        `;
+                    `;
+                });
 
-        licenze.forEach(lic => {
-            htmlTabella += `
-                <tr class="hover:bg-slate-50 text-slate-700 transition">
-                    <td class="p-3 font-medium text-indigo-600">#${lic.id}</td>
-                    <td class="p-3 font-semibold">${lic.intestatario}</td>
-                    <td class="p-3 text-center bg-slate-50/50">${lic.max_spazi}</td>
-                    <td class="p-3 text-center">${lic.max_utenti_totali}</td>
-                    <td class="p-3 text-center bg-slate-50/50">${lic.max_aziende_totali}</td>
-                    <td class="p-3 text-slate-500">${new Date(lic.data_scadenza).toLocaleDateString('it-IT')}</td>
-                </tr>
-            `;
-        });
-
-        htmlTabella += `</tbody></table></div>`;
-        contenitore.innerHTML = htmlTabella;
-
-    } catch (error) {
-        contenitore.innerHTML = `
-            <p class="text-sm text-red-600 bg-red-50 p-4 rounded border border-red-200 font-medium">
-                Errore di connessione: Assicurati che il file main.py sia avviato correttamente.
-            </p>
-        `;
-    }
-}
-
-// Funzione AJAX per salvare un nuovo record nel database
-async function salvaLicenza(event) {
-    event.preventDefault();
-    
-    const payload = {
-        intestatario: document.getElementById('lic-intestatario').value,
-        max_spazi: parseInt(document.getElementById('lic-spazi').value),
-        max_utenti_totali: parseInt(document.getElementById('lic-utenti').value),
-        max_aziende_totali: parseInt(document.getElementById('lic-aziende').value),
-        data_scadenza: document.getElementById('lic-scadenza').value
-    };
-
-    try {
-        const response = await fetch('/superadmin/licenze', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        const data = await response.json();
-        if (response.ok) {
-            alert('Licenza salvata con successo nel Database!');
-            document.getElementById('form-licenza').reset();
-            cambiaTab('licenze', 'elenco'); // Torna all'elenco e ricarica i dati
-        } else {
-            alert('Errore dal database: ' + data.detail);
+                htmlTabella += `</tbody></table></div>`;
+                contenitore.innerHTML = htmlTabella;
+            } catch (error) {
+                contenitore.innerHTML = `<p class="text-sm text-red-600 bg-red-50 p-4 rounded border border-red-200 font-medium">Errore di comunicazione con il backend su Railway.</p>`;
+            }
         }
-    } catch (error) {
-        alert('Impossibile connettersi al backend.');
-    }
-}
+
+        async function salvaLicenza(event) {
+            event.preventDefault();
+            const payload = {
+                intestatario: document.getElementById('lic-intestatario').value,
+                max_spazi: parseInt(document.getElementById('lic-spazi').value),
+                max_utenti_totali: parseInt(document.getElementById('lic-utenti').value),
+                max_aziende_totali: parseInt(document.getElementById('lic-aziende').value),
+                data_scadenza: document.getElementById('lic-scadenza').value
+            };
+
+            try {
+                const response = await fetch('/superadmin/licenze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    alert('Licenza salvata con successo nel Database!');
+                    document.getElementById('form-licenza').reset();
+                    cambiaTab('licenze', 'elenco');
+                } else {
+                    alert('Errore: ' + data.detail);
+                }
+            } catch (error) {
+                alert('Impossibile connettersi al backend.');
+            }
+        }
+    </script>
+</body>
+</html>
