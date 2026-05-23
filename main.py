@@ -3,7 +3,8 @@ import base64
 import json
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from datetime import date
 from sqlalchemy import create_engine, Column, Integer, String, Date, Boolean, ForeignKey, Table
 from sqlalchemy.orm import relationship, declarative_base, sessionmaker, Session
 from passlib.context import CryptContext
@@ -47,7 +48,7 @@ class Licenza(Base):
     max_aziende_totali = Column(Integer, default=3)
     data_scadenza = Column(Date, nullable=False)
     
-    spazi = relationship("Spazio", back_populates="licenza")
+    spazi = relationship("Spazio", back_populates="licenza", cascade="all, delete-orphan")
 
 # [ANAGRAFICHE]
 class Spazio(Base):
@@ -58,8 +59,8 @@ class Spazio(Base):
     tipologia = Column(String, nullable=False)
     
     licenza = relationship("Licenza", back_populates="spazi")
-    utenti = relationship("Utente", back_populates="spazio")
-    aziende = relationship("Azienda", back_populates="spazio")
+    utenti = relationship("Utente", back_populates="spazio", cascade="all, delete-orphan")
+    aziende = relationship("Azienda", back_populates="spazio", cascade="all, delete-orphan")
 
 class ModuloSistema(Base):
     __tablename__ = 'moduli_sistema'
@@ -83,12 +84,12 @@ class ProfiloUtente(Base):
     report = relationship("ReportSistema", secondary=profilo_report)
     utenti = relationship("Utente", back_populates="profilo")
 
-# [TABELLE] Nuova tabella dinamica per le tipologie utente (Ruoli)
+# [TABELLE] Gestione dinamica dei ruoli
 class TipologiaUtente(Base):
     __tablename__ = 'tipologie_utente'
     id = Column(Integer, primary_key=True, autoincrement=True)
     codice_ruolo = Column(String, unique=True, nullable=False)  # Es. 'ADMIN_SPAZIO'
-    nome_ruolo = Column(String, nullable=False)                # Es. 'Amministratore'
+    nome_ruolo = Column(String, nullable=False)                # Es. 'Amministratore Spazio'
     descrizione = Column(String, nullable=True)
 
     utenti = relationship("Utente", back_populates="tipologia")
@@ -139,11 +140,11 @@ class SogliaIndice(Base):
     
     indice = relationship("ConfigIndice", back_populates="soglie")
 
-# Creazione tabelle automatiche su PostgreSQL (Railway)
+# Creazione tabelle automatiche
 Base.metadata.create_all(bind=engine)
 
 # --- INIZIALIZZAZIONE FASTAPI ---
-app = FastAPI()
+app = FastAPI(title="CCII Web API - Super Admin Dashboard")
 
 app.add_middleware(
     CORSMiddleware,
@@ -159,23 +160,30 @@ def get_db():
     finally:
         db.close()
 
-# --- SCHEMI PYDANTIC PER IL POPOLAMENTO ---
+# --- SCHEMI PYDANTIC ---
 class LoginRequest(BaseModel):
     username: str
     password: str
 
 class TipologiaUtenteCreate(BaseModel):
-    codice_ruolo: str
-    nome_ruolo: str
+    codice_ruolo: str = Field(..., example="OPERATORE")
+    nome_ruolo: str = Field(..., example="Operatore standard")
     descrizione: str = None
 
-# --- ENDPOINTS ---
+class LicenzaCreate(BaseModel):
+    intestatario: str = Field(..., example="Studio Commercialista")
+    max_spazi: int = Field(..., gte=1)
+    max_utenti_totali: int = Field(..., gte=1)
+    max_aziende_totali: int = Field(..., gte=1)
+    data_scadenza: date
+
+# --- ENDPOINTS API ---
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
-# Endpoint per fornire la struttura del menu laterale pulito alla UI del Super Admin
+# 1. Configurazione Menu Dashboard Super Admin
 @app.get("/superadmin/menu")
 def get_superadmin_menu():
     return {
@@ -186,12 +194,12 @@ def get_superadmin_menu():
         "SISTEMA": ["Profilo XBRL", "Licenze"]
     }
 
-# Endpoint operativo per iniziare a popolare le tipologie utente nel DB
+# 2. TABELLE ➡️ Inserimento Tipologia Utente
 @app.post("/superadmin/tipologie-utente")
 def create_tipologia_utente(req: TipologiaUtenteCreate, db: Session = Depends(get_db)):
     esistente = db.query(TipologiaUtente).filter(TipologiaUtente.codice_ruolo == req.codice_ruolo).first()
     if esistente:
-        raise HTTPException(status_code=400, detail="Codice ruolo già esistente")
+        raise HTTPException(status_code=400, detail="Codice ruolo già registrato nel database")
     
     nuova_tipologia = TipologiaUtente(
         codice_ruolo=req.codice_ruolo,
@@ -201,8 +209,27 @@ def create_tipologia_utente(req: TipologiaUtenteCreate, db: Session = Depends(ge
     db.add(nuova_tipologia)
     db.commit()
     db.refresh(nuova_tipologia)
-    return {"status": "success", "id": nueva_tipologia.id}
+    return {"status": "success", "id": nuova_tipologia.id}
 
+# 3. SISTEMA ➡️ Inserimento Licenze
+@app.post("/superadmin/licenze")
+def create_licenza(req: LicenzaCreate, db: Session = Depends(get_db)):
+    if req.data_scadenza <= date.today():
+        raise HTTPException(status_code=400, detail="La data di scadenza della licenza deve essere futura")
+        
+    nuova_licenza = Licenza(
+        intestatario=req.intestatario,
+        max_spazi=req.max_spazi,
+        max_utenti_totali=req.max_utenti_totali,
+        max_aziende_totali=req.max_aziende_totali,
+        data_scadenza=req.data_scadenza
+    )
+    db.add(nuova_licenza)
+    db.commit()
+    db.refresh(nuova_licenza)
+    return {"status": "success", "id": nuova_licenza.id}
+
+# 4. Autenticazione (Login)
 @app.post("/login")
 def login(req: LoginRequest, db: Session = Depends(get_db)):
     if req.username == "SuperAdmin":
@@ -219,7 +246,7 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Utente non trovato")
         
     if utente.tentativi_falliti >= 5:
-        raise HTTPException(status_code=403, detail="Account bloccato")
+        raise HTTPException(status_code=403, detail="Account bloccato per motivi di sicurezza")
         
     if not pwd_context.verify(req.password, utente.password_hash):
         utente.tentativi_falliti += 1
