@@ -72,34 +72,47 @@ def home():
 @app.get("/tenants")
 def get_old_tenants(db: Session = Depends(get_db)):
     try:
-        # Tentativo di lettura dal database reale
+        # 1. Lettura dal database reale
         record_spazi = db.query(Spazi).all()
-       risposta_frontend.append({
-    # Dati base dello spazio
-    "id": str(s.id),
-    "nome": s.nome,
-    "codice": s.codice,
-    "attivo": s.attivo,
-    
-    # Tentativi per il Nome dello Spazio (Risolve il problema di "N/D")
-    "nome_spazio": s.nome,
-    "nomeSpazio": s.nome,
-    "tenant_name": s.nome,
-    "name": s.nome,
-    
-    # Tentativi per il Limite Utenti
-    "max_utenti_totali": 3,
-    "max_utenti": 3,
-    "max_users": 3,
-    "limite_utenti": 3,
-    
-    # Tentativi per il Limite Aziende
-    "max_aziende_totali": 3,
-    "max_aziende": 3,
-    "max_companies": 3,
-    "limite_aziende": 3
-})
+        
+        # 2. Inizializziamo la lista che conterrà i dati per il frontend
+        risposta_frontend = []
+        
+        # 3. Ciclo per estrarre ogni singolo spazio 's'
+        for s in record_spazi:
+            risposta_frontend.append({
+                # Dati base dello spazio
+                "id": str(s.id),
+                "nome": s.nome,
+                "codice": s.codice,
+                "attivo": s.attivo,
+                
+                # Tentativi per il Nome dello Spazio
+                "nome_spazio": s.nome,
+                "nomeSpazio": s.nome,
+                "tenant_name": s.nome,
+                "name": s.nome,
+                
+                # Tentativi per il Limite Utenti
+                "max_utenti_totali": 3,
+                "max_utenti": 3,
+                "max_users": 3,
+                "limite_utenti": 3,
+                
+                # Tentativi per il Limite Aziende
+                "max_aziende_totali": 3,
+                "max_aziende": 3,
+                "max_companies": 3,
+                "limite_aziende": 3
+            })
+            
+        # 4. Restituiamo la lista al frontend
+        return risposta_frontend
+
     except Exception as e:
+        # Gestione errore in caso di fallimento della query
+        print(f"Errore: {e}")
+        return []    except Exception as e:
         # Fallback statico nel caso in cui le tabelle non siano accessibili
         return [
             {
