@@ -1,8 +1,7 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from database import get_db
-from models import Spazi  # Assicurati che il nome corrisponda al modello nel tuo models.py
+from models import Spazi, get_db  # Assicurati che il nome corrisponda al modello nel tuo models.py
 
 app = FastAPI(title="Backend CCII")
 
