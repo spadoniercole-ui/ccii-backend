@@ -2,12 +2,17 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-# 1. Recuperiamo l'URL del database dalle variabili d'ambiente (tipico su Railway)
-# Se non esiste, usa SQLite in locale come fallback per non bloccarsi
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
+# 1. Recuperiamo l'URL e gestiamo stringhe vuote o formati legacy (postgres://)
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# 2. Creiamo il motore di connessione
-# 'connect_args' serve solo se usiamo SQLite in locale
+if not DATABASE_URL:
+    # Se la variabile è vuota o assente, usa SQLite locale
+    DATABASE_URL = "sqlite:///./test.db"
+elif DATABASE_URL.startswith("postgres://"):
+    # Railway spesso usa "postgres://", ma SQLAlchemy vuole "postgresql://"
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# 2. Creiamo il motore di connessione con gli argomenti corretti
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 else:
