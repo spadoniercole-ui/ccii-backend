@@ -1,84 +1,39 @@
-import os
-import base64
-import json
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
-from sqlalchemy import create_engine, Column, String, Boolean, ForeignKey, Integer
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship, declarative_base, sessionmaker, Session
-import uuid
+from sqlalchemy.orm import Session
+from database import get_db
+from models import Spazi  # Assicurati che il nome corrisponda al modello nel tuo models.py
 
-# --- CONFIGURAZIONE DATABASE ---
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:pass@localhost:5432/db")
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+app = FastAPI(title="Backend CCII")
 
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
-# --- MODELLI DATABASE ESSENZIALI ---
-
-class TipiSpazio(Base):
-    __tablename__ = 'tipi_spazio'
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    nome = Column(String(100), unique=True, nullable=False)
-    descrizione = Column(String, nullable=True)
-    spazi = relationship("Spazi", back_populates="tipo_spazio")
-
-class Spazi(Base):
-    __tablename__ = 'spazi'
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    nome = Column(String(255), nullable=False)
-    codice = Column(String(50), unique=True, nullable=False)
-    tipo_spazio_id = Column(UUID(as_uuid=True), ForeignKey('tipi_spazio.id'))
-    logo_spazio = Column(String, nullable=True)
-    attivo = Column(Boolean, default=True)
-    
-    tipo_spazio = relationship("TipiSpazio", back_populates="spazi")
-
-# Evitiamo create_all globale se le tabelle esistono già o generano conflitti di tipo.
-# Base.metadata.create_all(bind=engine)
-
-# --- INIZIALIZZAZIONE FASTAPI ---
-app = FastAPI(title="CCII Web API")
-
+# Configurazione CORS per permettere al frontend di comunicare con il backend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+@app.get("/")
+def read_root():
+    return {"status": "active", "message": "Backend CCII attivo (Modalità Isolata)"}
 
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-# --- ENDPOINTS ---
-
-@app.get("/", response_class=HTMLResponse)
-def home():
-    return "<h3>Backend CCII attivo (Modalità Isolata)</h3>"
+@app.post("/login")
+def login_user():
+    # Rotta temporanea di login per permettere l'accesso alla dashboard
+    return {"status": "success", "token": "mock-token-superadmin"}
 
 @app.get("/tenants")
 def get_old_tenants(db: Session = Depends(get_db)):
     try:
-        # 1. Lettura dal database reale
+        # 1. Lettura dei record reali dal database
         record_spazi = db.query(Spazi).all()
         
-        # 2. Inizializziamo la lista che conterrà i dati per il frontend
+        # 2. Inizializziamo la lista per il frontend
         risposta_frontend = []
         
-        # 3. Ciclo per estrarre ogni singolo spazio 's'
+        # 3. Ciclo per popolare la risposta con tutte le chiavi possibili per il frontend
         for s in record_spazi:
             risposta_frontend.append({
                 # Dati base dello spazio
@@ -87,49 +42,27 @@ def get_old_tenants(db: Session = Depends(get_db)):
                 "codice": s.codice,
                 "attivo": s.attivo,
                 
-                # Tentativi per il Nome dello Spazio
+                # Varianti per il Nome dello Spazio (Risolve l'errore N/D)
                 "nome_spazio": s.nome,
                 "nomeSpazio": s.nome,
                 "tenant_name": s.nome,
                 "name": s.nome,
                 
-                # Tentativi per il Limite Utenti
+                # Varianti per il Limite Utenti
                 "max_utenti_totali": 3,
                 "max_utenti": 3,
                 "max_users": 3,
                 "limite_utenti": 3,
                 
-                # Tentativi per il Limite Aziende
+                # Varianti per il Limite Aziende
                 "max_aziende_totali": 3,
                 "max_aziende": 3,
                 "max_companies": 3,
                 "limite_aziende": 3
             })
             
-        # 4. Restituiamo la lista al frontend
         return risposta_frontend
 
     except Exception as e:
-        # Gestione errore in caso di fallimento della query
-        print(f"Errore: {e}")
-        return []    except Exception as e:
-        # Fallback statico nel caso in cui le tabelle non siano accessibili
-        return [
-            {
-                "id": "da39a3ee-5e6b-4b0d-bc12-456789abcdef",
-                "nome": "Studio Demo",
-                "codice": "DEMO01",
-                "attivo": True,
-                "nome_spazio": "Studio Demo Connesso",
-                "max_utenti": 5,
-                "max_aziende": 10
-            }
-        ]
-
-@app.post("/login")
-def login(req: LoginRequest):
-    if req.username == "SuperAdmin" and req.password == "CCIIWeb2.0":
-        fake_payload = {"role": "SUPER_ADMIN"}
-        payload_b64 = base64.urlsafe_b64encode(json.dumps(fake_payload).encode()).decode().rstrip("=")
-        return {"token": f"fakeHeader.{payload_b64}.fakeSignature"}
-    raise HTTPException(status_code=401, detail="Credenziali errate")
+        print(f"Errore durante la query dei tenants: {e}")
+        return []
