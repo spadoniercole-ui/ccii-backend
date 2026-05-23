@@ -1,17 +1,15 @@
 import os
 import base64
 import json
-from datetime import date
+from datetime import datetime
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import create_engine, Column, Integer, String, Date, Boolean, ForeignKey, Table
+from sqlalchemy import create_engine, Column, String, Boolean, ForeignKey, Table, Integer
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, declarative_base, sessionmaker, Session
-from passlib.context import CryptContext
-
-# --- CONFIGURAZIONE SICUREZZA ---
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+import uuid
 
 # --- CONFIGURAZIONE DATABASE ---
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:pass@localhost:5432/db")
@@ -22,129 +20,91 @@ engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# --- TABELLE DI GIUNZIONE (MANY-TO-MANY) ---
-profilo_moduli = Table(
-    'profilo_moduli',
+# --- TABELLE DI GIUNZIONE ---
+moduli_tipi_spazio = Table(
+    'moduli_tipi_spazio',
     Base.metadata,
-    Column('profilo_id', Integer, ForeignKey('profili_utente.id', ondelete='CASCADE'), primary_key=True),
-    Column('modulo_id', Integer, ForeignKey('moduli_sistema.id', ondelete='CASCADE'), primary_key=True)
+    Column('tipo_spazio_id', UUID(as_uuid=True), ForeignKey('tipi_spazio.id', ondelete='CASCADE'), primary_key=True),
+    Column('modulo_id', UUID(as_uuid=True), ForeignKey('moduli.id', ondelete='CASCADE'), primary_key=True)
 )
 
-profilo_report = Table(
-    'profilo_report',
+permessi_utente_azienda = Table(
+    'permessi_utente_azienda',
     Base.metadata,
-    Column('profilo_id', Integer, ForeignKey('profili_utente.id', ondelete='CASCADE'), primary_key=True),
-    Column('report_id', Integer, ForeignKey('report_sistema.id', ondelete='CASCADE'), primary_key=True)
+    Column('utente_id', UUID(as_uuid=True), ForeignKey('utenti.id', ondelete='CASCADE'), primary_key=True),
+    Column('azienda_id', UUID(as_uuid=True), ForeignKey('aziende.id', ondelete='CASCADE'), primary_key=True),
+    Column('permesso', String(50), nullable=False)
 )
 
-# --- MODELLI DATABASE ---
+autorizzazioni_modulo = Table(
+    'autorizzazioni_modulo',
+    Base.metadata,
+    Column('utente_id', UUID(as_uuid=True), ForeignKey('utenti.id', ondelete='CASCADE'), primary_key=True),
+    Column('modulo_id', UUID(as_uuid=True), ForeignKey('moduli.id', ondelete='CASCADE'), primary_key=True),
+    Column('autorizzazione', String(50), nullable=False)
+)
 
-# [SISTEMA]
-class Licenza(Base):
-    __tablename__ = 'licenze'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    intestatario = Column(String, nullable=False)
-    max_spazi = Column(Integer, default=1)
-    max_utenti_totali = Column(Integer, default=3)
-    max_aziende_totali = Column(Integer, default=3)
-    data_scadenza = Column(Date, nullable=False)
-    
-    spazi = relationship("Spazio", back_populates="licenza", cascade="all, delete-orphan")
+# --- MODELLI DATABASE REALINEATI ALLO SCHEMA SQL ---
 
-# [ANAGRAFICHE]
-class Spazio(Base):
-    __tablename__ = 'spazi'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    licenza_id = Column(Integer, ForeignKey('licenze.id', ondelete='RESTRICT'), nullable=False)
-    nome_spazio = Column(String, nullable=False)
-    tipologia = Column(String, nullable=False)
-    
-    licenza = relationship("Licenza", back_populates="spazi")
-    utenti = relationship("Utente", back_populates="spazio", cascade="all, delete-orphan")
-    aziende = relationship("Azienda", back_populates="spazio", cascade="all, delete-orphan")
-
-class ModuloSistema(Base):
-    __tablename__ = 'moduli_sistema'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    codice = Column(String, unique=True, nullable=False)
-    nome = Column(String, nullable=False)
-
-# [CONFIGURAZIONI]
-class ReportSistema(Base):
-    __tablename__ = 'report_sistema'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    codice = Column(String, unique=True, nullable=False)
-    nome = Column(String, nullable=False)
-
-class ProfiloUtente(Base):
-    __tablename__ = 'profili_utente'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    nome_profilo = Column(String, nullable=False)
-    
-    moduli = relationship("ModuloSistema", secondary=profilo_moduli)
-    report = relationship("ReportSistema", secondary=profilo_report)
-    utenti = relationship("Utente", back_populates="profilo")
-
-# [TABELLE] Gestione dinamica dei ruoli
-class TipologiaUtente(Base):
-    __tablename__ = 'tipologie_utente'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    codice_ruolo = Column(String, unique=True, nullable=False)
-    nome_ruolo = Column(String, nullable=False)
+class TipiSpazio(Base):
+    __tablename__ = 'tipi_spazio'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    nome = Column(String(100), unique=True, nullable=False)
     descrizione = Column(String, nullable=True)
-
-    utenti = relationship("Utente", back_populates="tipologia")
-
-# [ANAGRAFICHE]
-class Utente(Base):
-    __tablename__ = 'utenti'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    spazio_id = Column(Integer, ForeignKey('spazi.id', ondelete='CASCADE'), nullable=False)
-    profilo_id = Column(Integer, ForeignKey('profili_utente.id', ondelete='SET NULL'), nullable=True)
-    tipologia_id = Column(Integer, ForeignKey('tipologie_utente.id', ondelete='RESTRICT'), nullable=False)
     
-    username = Column(String, unique=True, nullable=False)
-    password_hash = Column(String, nullable=False)
-    tentativi_falliti = Column(Integer, default=0)
-    
-    spazio = relationship("Spazio", back_populates="utenti")
-    profilo = relationship("ProfiloUtente", back_populates="utenti")
-    tipologia = relationship("TipologiaUtente", back_populates="utenti")
+    spazi = relationship("Spazi", back_populates="tipo_spazio")
 
-class Azienda(Base):
+class Spazi(Base):
+    __tablename__ = 'spazi'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    nome = Column(String(255), nullable=False)
+    codice = Column(String(50), unique=True, nullable=False)
+    tipo_spazio_id = Column(UUID(as_uuid=True), ForeignKey('tipi_spazio.id'))
+    logo_spazio = Column(String, nullable=True)
+    attivo = Column(Boolean, default=True)
+    
+    tipo_spazio = relationship("TipiSpazio", back_populates="spazi")
+    aziende = relationship("Aziende", back_populates="spazio", cascade="all, delete-orphan")
+    utenti = relationship("Utenti", back_populates="spazio", cascade="all, delete-orphan")
+
+class Moduli(Base):
+    __tablename__ = 'moduli'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    nome = Column(String(100), unique=True, nullable=False)
+    descrizione = Column(String, nullable=True)
+    attivo_globale = Column(Boolean, default=True)
+
+class Aziende(Base):
     __tablename__ = 'aziende'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    spazio_id = Column(Integer, ForeignKey('spazi.id', ondelete='CASCADE'), nullable=False)
-    ragione_sociale = Column(String, nullable=False)
-    partita_iva = Column(String(11), unique=True, nullable=False)
-    codice_ateco = Column(String(6), nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    spazio_id = Column(UUID(as_uuid=True), ForeignKey('spazi.id', ondelete='CASCADE'), nullable=False)
+    ragione_sociale = Column(String(500), nullable=False)
+    partita_iva = Column(String(16), nullable=True)
+    codice_fiscale = Column(String(16), nullable=True)
+    codice_ateco = Column(String(10), nullable=True)
     attiva = Column(Boolean, default=True)
     
-    spazio = relationship("Spazio", back_populates="aziende")
+    spazio = relationship("Spazi", back_populates="aziende")
 
-# [CONFIGURAZIONI]
-class ConfigIndice(Base):
-    __tablename__ = 'config_indici'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    codice_indice = Column(String, unique=True, nullable=False)
-    nome_indice = Column(String, nullable=False)
+class Utenti(Base):
+    __tablename__ = 'utenti'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    spazio_id = Column(UUID(as_uuid=True), ForeignKey('spazi.id', ondelete='CASCADE'), nullable=False)
+    username = Column(String(100), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    email = Column(String(255), nullable=True)
+    tipologia = Column(String(50), nullable=False)
+    licenza = Column(String(100), nullable=True)
+    attivo = Column(Boolean, default=True)
+    tentativi_login_falliti = Column(Integer, default=0)
+    bloccato = Column(Boolean, default=False)
     
-    soglie = relationship("SogliaIndice", back_populates="indice", cascade="all, delete-orphan")
-
-class SogliaIndice(Base):
-    __tablename__ = 'soglie_indici'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    indice_id = Column(Integer, ForeignKey('config_indici.id', ondelete='CASCADE'), nullable=False)
-    codice_ateco_settore = Column(String(6), nullable=False)
-    valore_soglia = Column(String, nullable=False)
-    operatore_confronto = Column(String, default='<')
-    
-    indice = relationship("ConfigIndice", back_populates="soglie")
+    spazio = relationship("Spazi", back_populates="utenti")
 
 Base.metadata.create_all(bind=engine)
 
 # --- INIZIALIZZAZIONE FASTAPI ---
-app = FastAPI(title="CCII Web API - Super Admin Dashboard")
+app = FastAPI(title="CCII Web API - Allineamento Database")
 
 app.add_middleware(
     CORSMiddleware,
@@ -160,88 +120,36 @@ def get_db():
     finally:
         db.close()
 
-# --- SCHEMI PYDANTIC ---
 class LoginRequest(BaseModel):
     username: str
     password: str
 
-class TipologiaUtenteCreate(BaseModel):
-    codice_ruolo: str = Field(..., example="OPERATORE")
-    nome_ruolo: str = Field(..., example="Operatore standard")
-    descrizione: str = None
-
-class LicenzaCreate(BaseModel):
-    intestatario: str = Field(..., example="Studio Commercialista")
-    max_spazi: int = Field(..., gte=1)
-    max_utenti_totali: int = Field(..., gte=1)
-    max_aziende_totali: int = Field(..., gte=1)
-    data_scadenza: date
-
-# --- ENDPOINTS INTERFACCIA E API ---
+# --- ENDPOINTS ---
 
 @app.get("/", response_class=HTMLResponse)
 def home():
-    try:
-        with open("templates/index.html", "r", encoding="utf-8") as f:
-            return f.read()
-    except FileNotFoundError:
-        return "<h3>Errore: File 'templates/index.html' non trovato.</h3>"
+    return "<h3>Backend CCII attivo e allineato al DB PostgreSQL</h3>"
 
-# 🟢 NUOVO: Rotta temporanea di compatibilità per il vecchio frontend
+# 🟢 ROTTA /tenants INTEGRATA CON I CAMPI REALI DEL FRONTEND REACT
 @app.get("/tenants")
-def get_old_tenants():
-    # Restituiamo un record di test strutturato per vedere se il frontend lo renderizza
-    return [
-        {
-            "id": 1,
-            "nome_spazio": "Studio Test Integrazione",
-            "tipologia": "Studio Professionale",
-            "max_utenti": 5,
+def get_old_tenants(db: Session = Depends(get_db)):
+    # Interroghiamo la tabella reale 'spazi'
+    record_spazi = db.query(Spazi).all()
+    
+    risposta_frontend = []
+    for s in record_spazi:
+        # Calcoliamo i limiti o inseriamo valori di fallback coerenti
+        risposta_frontend.append({
+            "id": str(s.id),
+            "nome": s.nome,
+            "codice": s.codice,
+            "attivo": s.attivo,
+            # Forniamo chiavi stabili che il componente React cerca per evitare stringhe vuote o N/D
+            "nome_spazio": s.nome,
+            "max_utenti": 5, 
             "max_aziende": 10
-        }
-    ]
-
-@app.get("/superadmin/menu")
-def get_superadmin_menu():
-    return {
-        "ANAGRAFICHE": ["Anagrafica utenti", "Anagrafica spazi"],
-        "COLLEGAMENTI": ["Configurazione XBRL", "Configurazione ISTAT"],
-        "CONFIGURAZIONI": ["Check list", "Indici", "Report"],
-        "TABELLE": ["Tipologia utente"],
-        "SISTEMA": ["Profilo XBRL", "Licenze"]
-    }
-
-@app.post("/superadmin/tipologie-utente")
-def create_tipologia_utente(req: TipologiaUtenteCreate, db: Session = Depends(get_db)):
-    esistente = db.query(TipologiaUtente).filter(TipologiaUtente.codice_ruolo == req.codice_ruolo).first()
-    if esistente:
-        raise HTTPException(status_code=400, detail="Codice ruolo già registrato")
-    nuova_tipologia = TipologiaUtente(codice_ruolo=req.codice_ruolo, nome_ruolo=req.nome_ruolo, descrizione=req.descrizione)
-    db.add(nuova_tipologia)
-    db.commit()
-    db.refresh(nuova_tipologia)
-    return {"status": "success", "id": nuova_tipologia.id}
-
-@app.get("/superadmin/licenze")
-def get_licenze(db: Session = Depends(get_db)):
-    licenze = db.query(Licenza).all()
-    return licenze
-
-@app.post("/superadmin/licenze")
-def create_licenza(req: LicenzaCreate, db: Session = Depends(get_db)):
-    if req.data_scadenza <= date.today():
-        raise HTTPException(status_code=400, detail="La data di scadenza della licenza deve essere futura")
-    nuova_licenza = Licenza(
-        intestatario=req.intestatario,
-        max_spazi=req.max_spazi,
-        max_utenti_totali=req.max_utenti_totali,
-        max_aziende_totali=req.max_aziende_totali,
-        data_scadenza=req.data_scadenza
-    )
-    db.add(nuova_licenza)
-    db.commit()
-    db.refresh(nuova_licenza)
-    return {"status": "success", "id": nuova_licenza.id}
+        })
+    return risposta_frontend
 
 @app.post("/login")
 def login(req: LoginRequest, db: Session = Depends(get_db)):
