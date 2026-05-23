@@ -6,9 +6,7 @@ class Role(Base):
     __tablename__ = "roles"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, nullable=False) # es: "admin_spazio", "admin_azienda", "operatore", "consultatore"
-
-    # Relazione: un ruolo può essere assegnato a molti utenti
+    name = Column(String, unique=True, nullable=False)
     users = relationship("User", back_populates="role")
 
 class User(Base):
@@ -17,9 +15,14 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-    
-    # Chiave esterna per il collegamento al ruolo
     role_id = Column(Integer, ForeignKey("roles.id"))
-
-    # Relazione: un utente ha un solo ruolo
     role = relationship("Role", back_populates="users")
+
+# 🏢 Nuova classe Spazio allineata con le tue API
+class Spazio(Base):
+    __tablename__ = "spazi"
+
+    id = Column(Integer, primary_key=True, index=True)
+    licenza_id = Column(Integer, nullable=True)
+    nome_spazio = Column(String, nullable=True)
+    tipologia = Column(String, nullable=True) # 👈 Colonna creata per accogliere il dato
