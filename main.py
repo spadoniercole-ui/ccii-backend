@@ -10,14 +10,10 @@ from sqlalchemy.orm import relationship, declarative_base, sessionmaker, Session
 from passlib.context import CryptContext
 
 # --- CONFIGURAZIONE SICUREZZA ---
-# Configurazione per l'hashing sicuro delle password
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # --- CONFIGURAZIONE DATABASE ---
-# Railway fornisce l'URL nella variabile d'ambiente DATABASE_URL
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:pass@localhost:5432/db")
-
-# Gestione della stringa di connessione per SQLAlchemy
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
@@ -114,7 +110,26 @@ class Azienda(Base):
     
     spazio = relationship("Spazio", back_populates="aziende")
 
-# Creazione effettiva delle tabelle all'avvio
+# --- NUOVE TABELLE CONFIGURAZIONE INDICI (SENZA FORMULA) ---
+class ConfigIndice(Base):
+    __tablename__ = 'config_indici'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    codice_indice = Column(String, unique=True, nullable=False)  # Es. 'IND_DSCR'
+    nome_indice = Column(String, nullable=False)                 # Es. 'D.S.C.R. a 6 mesi'
+    
+    soglie = relationship("SogliaIndice", back_populates="indice", cascade="all, delete-orphan")
+
+class SogliaIndice(Base):
+    __tablename__ = 'soglie_indici'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    indice_id = Column(Integer, ForeignKey('config_indici.id', ondelete='CASCADE'), nullable=False)
+    codice_ateco_settore = Column(String(6), nullable=False)     # Settore ISTAT/ATECO
+    valore_soglia = Column(String, nullable=False)               # Valore limite
+    operatore_confronto = Column(String, default='<')            # Es. '<', '>'
+    
+    indice = relationship("ConfigIndice", back_populates="soglie")
+
+# Creazione tabelle
 Base.metadata.create_all(bind=engine)
 
 # --- INIZIALIZZAZIONE FASTAPI ---
@@ -127,7 +142,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Dipendenza per ottenere la sessione del DB nelle rotte
 def get_db():
     db = SessionLocal()
     try:
@@ -135,20 +149,16 @@ def get_db():
     finally:
         db.close()
 
-# --- SCHEMI SCHEDE VALIDAZIONE (PYDANTIC) ---
 class LoginRequest(BaseModel):
     username: str
     password: str
 
-# --- ENDPOINT DI SERVIZIO ---
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
-# --- ENDPOINT LOGIN ---
 @app.post("/login")
 def login(req: LoginRequest, db: Session = Depends(get_db)):
-    # Logica Hardcoded per il Super Admin a codice
     if req.username == "SuperAdmin":
         if req.password == "CCIIWeb2.0":
             fake_payload = {"role": "SUPER_ADMIN"}
@@ -158,7 +168,6 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
         else:
             raise HTTPException(status_code=401, detail="Credenziali errate")
     
-    # Logica per gli utenti normali nel Database
     utente = db.query(Utente).filter(Utente.username == req.username).first()
     if not utente:
         raise HTTPException(status_code=401, detail="Utente non trovato")
@@ -166,23 +175,19 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
     if utente.tentativi_falliti >= 5:
         raise HTTPException(status_code=403, detail="Account bloccato per troppi tentativi falliti")
         
-    # Verifica della password con l'hash di bcrypt
     if not pwd_context.verify(req.password, utente.password_hash):
         utente.tentativi_falliti += 1
         db.commit()
         raise HTTPException(status_code=401, detail="Credenziali errate")
         
-    # Reset dei tentativi in caso di successo
     utente.tentativi_falliti = 0
     db.commit()
     
-    # Generazione Token per utente dello spazio
     user_payload = {"role": utente.ruolo_base.value, "spazio_id": utente.spazio_id}
     payload_b64 = base64.urlsafe_b64encode(json.dumps(user_payload).encode()).decode().rstrip("=")
     token = f"userHeader.{payload_b64}.userSignature"
     return {"token": token}
 
-# --- ENDPOINT DI MOCK TEMPORANEO PER IL FRONTEND ---
 @app.get("/tenants")
 def get_tenants():
     return [
