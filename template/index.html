@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Admin Dashboard - CCII Web</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        /* Stile per gestire lo scorrimento indipendente del menu e del contenuto */
+        .scroll-custom::-webkit-scrollbar {
+            width: 6px;
+        }
+        .scroll-custom::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen block">
+
+    <table class="w-full h-screen border-collapse table-fixed">
+        <tr>
+            <td class="w-[280px] bg-slate-900 text-slate-300 valign-top h-full border-r border-slate-800">
+                <div class="h-screen flex flex-col justify-between">
+                    <div class="p-5 border-b border-slate-800 bg-slate-950">
+                        <h1 class="text-white font-bold text-lg tracking-wide uppercase">CCII Web 2.0</h1>
+                        <p class="text-xs text-slate-500 mt-1">Pannello Super Admin</p>
+                    </div>
+
+                    <div class="flex-1 overflow-y-auto p-4 scroll-custom space-y-6">
+                        
+                        <div>
+                            <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-2">Anagrafiche</div>
+                            <ul class="space-y-1">
+                                <li><button onclick="naviga('anagrafica-utenti')" id="btn-anagrafica-utenti" class="w-full text-left px-3 py-2 rounded text-sm font-medium hover:bg-slate-800 hover:text-white transition">Anagrafica utenti</button></li>
+                                <li><button onclick="naviga('anagrafica-spazi')" id="btn-anagrafica-spazi" class="w-full text-left px-3 py-2 rounded text-sm font-medium hover:bg-slate-800 hover:text-white transition">Anagrafica spazi</button></li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-2">Collegamenti</div>
+                            <ul class="space-y-1">
+                                <li><button onclick="naviga('config-xbrl')" id="btn-config-xbrl" class="w-full text-left px-3 py-2 rounded text-sm font-medium hover:bg-slate-800 hover:text-white transition">Configurazione XBRL</button></li>
+                                <li><button onclick="naviga('config-istat')" id="btn-config-istat" class="w-full text-left px-3 py-2 rounded text-sm font-medium hover:bg-slate-800 hover:text-white transition">Configurazione ISTAT</button></li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-2">Configurazioni</div>
+                            <ul class="space-y-1">
+                                <li><button onclick="naviga('checklist')" id="btn-checklist" class="w-full text-left px-3 py-2 rounded text-sm font-medium hover:bg-slate-800 hover:text-white transition">Check list</button></li>
+                                <li><button onclick="naviga('indici')" id="btn-indici" class="w-full text-left px-3 py-2 rounded text-sm font-medium hover:bg-slate-800 hover:text-white transition">Indici</button></li>
+                                <li><button onclick="naviga('report')" id="btn-report" class="w-full text-left px-3 py-2 rounded text-sm font-medium hover:bg-slate-800 hover:text-white transition">Report</button></li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-2">Tabelle</div>
+                            <ul class="space-y-1">
+                                <li><button onclick="naviga('tipologia-utente')" id="btn-tipologia-utente" class="w-full text-left px-3 py-2 rounded text-sm font-medium hover:bg-slate-800 hover:text-white transition">Tipologia utente</button></li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-2">Sistema</div>
+                            <ul class="space-y-1">
+                                <li><button onclick="naviga('profilo-xbrl')" id="btn-profilo-xbrl" class="w-full text-left px-3 py-2 rounded text-sm font-medium hover:bg-slate-800 hover:text-white transition">Profilo XBRL</button></li>
+                                <li><button onclick="naviga('licenze')" id="btn-licenze" class="w-full text-left px-3 py-2 rounded text-sm font-medium hover:bg-slate-800 hover:text-white transition">Licenze</button></li>
+                            </ul>
+                        </div>
+
+                    </div>
+
+                    <div class="p-4 border-t border-slate-800 bg-slate-950 text-xs text-slate-400">
+                        Connesso come: <span class="text-amber-400 font-medium">SuperAdmin</span>
+                    </div>
+                </div>
+            </td>
+
+            <td class="valign-top bg-slate-50 h-full overflow-y-auto p-8 scroll-custom">
+                
+                <div class="mb-6">
+                    <h2 id="titolo-sezione" class="text-2xl font-bold text-slate-900">Benvenuto nella Dashboard</h2>
+                    <p id="descrizione-sezione" class="text-sm text-slate-500 mt-1">Seleziona una voce dal menu laterale per iniziare a configurare il sistema.</p>
+                </div>
+
+                <div id="area-contenuto">
+                    
+                    <div id="view-home" class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                        <p class="text-slate-600">Questo pannello ti permette di popolare e gestire le relazioni del database in tempo reale.</p>
+                    </div>
+
+                    <div id="view-licenze" class="hidden space-y-6">
+                        <div class="border-b border-slate-200">
+                            <nav class="flex space-x-4">
+                                <button onclick="cambiaTab('licenze', 'elenco')" id="tab-licenze-elenco" class="border-b-2 border-indigo-600 py-2 px-1 text-sm font-medium text-indigo-600">Elenco Licenze</button>
+                                <button onclick="cambiaTab('licenze', 'nuovo')" id="tab-licenze-nuovo" class="border-b-2 border-transparent py-2 px-1 text-sm font-medium text-slate-500 hover:text-slate-700 hover:border-slate-300">Nuova Licenza</button>
+                            </nav>
+                        </div>
+
+                        <div id="subview-licenze-elenco" class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                            <p class="text-sm text-slate-500">Qui appariranno le licenze caricate dal database.</p>
+                        </div>
+
+                        <div id="subview-licenze-nuovo" class="hidden bg-white border border-slate-200 rounded-xl p-6 shadow-sm max-w-2xl">
+                            <form id="form-licenza" class="space-y-4" onsubmit="salvaLicenza(event)">
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700">Intestatario / Studio</label>
+                                    <input type="text" id="lic-intestatario" required class="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
+                                </div>
+                                <div class="grid grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700">Max Spazi</label>
+                                        <input type="number" id="lic-spazi" value="1" min="1" required class="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700">Max Utenti</label>
+                                        <input type="number" id="lic-utenti" value="3" min="1" required class="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700">Max Aziende</label>
+                                        <input type="number" id="lic-aziende" value="5" min="1" required class="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700">Data Scadenza</label>
+                                    <input type="date" id="lic-scadenza" required class="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
+                                </div>
+                                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm py-2 px-4 rounded transition">Salva nel Database</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div id="view-placeholder" class="hidden bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                        <p class="text-slate-600">Schermata di configurazione in fase di attivazione sul database.</p>
+                    </div>
+
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <script>
+        // Gestione dei titoli e delle descrizioni delle macroaree
+        const infoSezioni = {
+            'anagrafica-utenti': { t: 'Anagrafica Utenti', d: 'Gestione e censimento degli utenti legati ai vari spazi.' },
+            'anagrafica-spazi': { t: 'Anagrafica Spazi', d: 'Configurazione degli ambienti di lavoro (studi, aziende).' },
+            'config-xbrl': { t: 'Configurazione XBRL', d: 'Mappatura dei nodi XBRL internazionali con il piano dei conti.' },
+            'config-istat': { t: 'Configurazione ISTAT', d: 'Caricamento e gestione dei benchmark settoriali ATECO.' },
+            'checklist': { t: 'Check List Adeguati Assetti', d: 'Definizione dei quesiti qualitativi e dei relativi pesi.' },
+            'indici': { t: 'Indici di Bilancio', d: 'Impostazione delle soglie di allarme quantitative per settore.' },
+            'report': { t: 'Modelli di Report', d: 'Configurazione dei modelli di esportazione dei dati finanziari.' },
+            'tipologia-utente': { t: 'Tipologia Utente', d: 'Dizionario dei ruoli di sistema e dei livelli di accesso.' },
+            'profilo-xbrl': { t: 'Profilo XBRL', d: 'Associazioni di importazione dei file di bilancio.' },
+            'licenze': { t: 'Gestione Licenze', d: 'Assegnazione e controllo dei tetti massimi operativi dei clienti.' }
+        };
+
+        // Funzione per cambiare schermata principale
+        function naviga(sezione) {
+            // Rimuovi evidenza da tutti i bottoni del menu
+            document.querySelectorAll('nav, ul button').forEach(b => b.classList.remove('bg-slate-800', 'text-white'));
+            
+            // Evidenzia bottone attivo
+            const btn = document.getElementById(`btn-${sezione}`);
+            if(btn) btn.classList.add('bg-slate-800', 'text-white');
+
+            // Aggiorna Titoli
+            document.getElementById('titolo-sezione').innerText = infoSezioni[sezione].t;
+            document.getElementById('descrizione-sezione').innerText = infoSezioni[sezione].d;
+
+            // Nascondi tutte le schermate
+            document.getElementById('view-home').classList.add('hidden');
+            document.getElementById('view-licenze').classList.add('hidden');
+            document.getElementById('view-placeholder').classList.add('hidden');
+
+            // Mostra la schermata corretta
+            if (sezione === 'licenze') {
+                document.getElementById('view-licenze').classList.remove('hidden');
+                cambiaTab('licenze', 'elenco');
+            } else {
+                document.getElementById('view-placeholder').classList.remove('hidden');
+            }
+        }
+
+        // Funzione per gestire le TAB interne ai record
+        function cambiaTab(sezione, tab) {
+            // Gestione classi grafiche delle tab
+            const tabElenco = document.getElementById(`tab-${sezione}-elenco`);
+            const tabNuovo = document.getElementById(`tab-${sezione}-nuovo`);
+            
+            const subElenco = document.getElementById(`subview-${sezione}-elenco`);
+            const subNuovo = document.getElementById(`subview-${sezione}-nuovo`);
+
+            if (tab === 'elenco') {
+                tabElenco.className = "border-b-2 border-indigo-600 py-2 px-1 text-sm font-medium text-indigo-600";
+                tabNuovo.className = "border-b-2 border-transparent py-2 px-1 text-sm font-medium text-slate-500 hover:text-slate-700 hover:border-slate-300";
+                subElenco.classList.remove('hidden');
+                subNuovo.classList.add('hidden');
+            } else {
+                tabNuovo.className = "border-b-2 border-indigo-600 py-2 px-1 text-sm font-medium text-indigo-600";
+                tabElenco.className = "border-b-2 border-transparent py-2 px-1 text-sm font-medium text-slate-500 hover:text-slate-700 hover:border-slate-300";
+                subNuovo.classList.remove('hidden');
+                subElenco.classList.add('hidden');
+            }
+        }
+
+        // Funzione AJAX per inviare la nuova licenza al backend FastAPI
+        async function salvaLicenza(event) {
+            event.preventDefault();
+            
+            const payload = {
+                intestatario: document.getElementById('lic-intestatario').value,
+                max_spazi: parseInt(document.getElementById('lic-spazi').value),
+                max_utenti_totali: parseInt(document.getElementById('lic-utenti').value),
+                max_aziende_totali: parseInt(document.getElementById('lic-aziende').value),
+                data_scadenza: document.getElementById('lic-scadenza').value
+            };
+
+            try {
+                const response = await fetch('/superadmin/licenze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    alert('Licenza salvata con successo nel Database! ID: ' + data.id);
+                    document.getElementById('form-licenza').reset();
+                    cambiaTab('licenze', 'elenco');
+                } else {
+                    alert('Errore: ' + data.detail);
+                }
+            } catch (error) {
+                alert('Impossibile connettersi al backend. Verifica che main.py sia attivo.');
+            }
+        }
+    </script>
+</body>
+</html>
