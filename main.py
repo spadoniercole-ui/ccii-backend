@@ -1,11 +1,10 @@
 import os
-import enum
 import base64
 import json
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from sqlalchemy import create_engine, Column, Integer, String, Date, Boolean, ForeignKey, Enum, Table
+from sqlalchemy import create_engine, Column, Integer, String, Date, Boolean, ForeignKey, Table
 from sqlalchemy.orm import relationship, declarative_base, sessionmaker, Session
 from passlib.context import CryptContext
 
@@ -36,13 +35,9 @@ profilo_report = Table(
     Column('report_id', Integer, ForeignKey('report_sistema.id', ondelete='CASCADE'), primary_key=True)
 )
 
-# --- ENUM RUOLI ---
-class RuoloBaseEnum(enum.Enum):
-    ADMIN_SPAZIO = "ADMIN_SPAZIO"
-    OPERATORE = "OPERATORE"
-    CONSULTATORE = "CONSULTATORE"
-
 # --- MODELLI DATABASE ---
+
+# [SISTEMA]
 class Licenza(Base):
     __tablename__ = 'licenze'
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -54,6 +49,7 @@ class Licenza(Base):
     
     spazi = relationship("Spazio", back_populates="licenza")
 
+# [ANAGRAFICHE]
 class Spazio(Base):
     __tablename__ = 'spazi'
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -71,6 +67,7 @@ class ModuloSistema(Base):
     codice = Column(String, unique=True, nullable=False)
     nome = Column(String, nullable=False)
 
+# [CONFIGURAZIONI]
 class ReportSistema(Base):
     __tablename__ = 'report_sistema'
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -86,18 +83,31 @@ class ProfiloUtente(Base):
     report = relationship("ReportSistema", secondary=profilo_report)
     utenti = relationship("Utente", back_populates="profilo")
 
+# [TABELLE] Nuova tabella dinamica per le tipologie utente (Ruoli)
+class TipologiaUtente(Base):
+    __tablename__ = 'tipologie_utente'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    codice_ruolo = Column(String, unique=True, nullable=False)  # Es. 'ADMIN_SPAZIO'
+    nome_ruolo = Column(String, nullable=False)                # Es. 'Amministratore'
+    descrizione = Column(String, nullable=True)
+
+    utenti = relationship("Utente", back_populates="tipologia")
+
+# [ANAGRAFICHE] Collegata a Spazi, Profili e Tipologie
 class Utente(Base):
     __tablename__ = 'utenti'
     id = Column(Integer, primary_key=True, autoincrement=True)
     spazio_id = Column(Integer, ForeignKey('spazi.id', ondelete='CASCADE'), nullable=False)
     profilo_id = Column(Integer, ForeignKey('profili_utente.id', ondelete='SET NULL'), nullable=True)
+    tipologia_id = Column(Integer, ForeignKey('tipologie_utente.id', ondelete='RESTRICT'), nullable=False)
+    
     username = Column(String, unique=True, nullable=False)
     password_hash = Column(String, nullable=False)
-    ruolo_base = Column(Enum(RuoloBaseEnum), nullable=False)
     tentativi_falliti = Column(Integer, default=0)
     
     spazio = relationship("Spazio", back_populates="utenti")
     profilo = relationship("ProfiloUtente", back_populates="utenti")
+    tipologia = relationship("TipologiaUtente", back_populates="utenti")
 
 class Azienda(Base):
     __tablename__ = 'aziende'
@@ -110,12 +120,12 @@ class Azienda(Base):
     
     spazio = relationship("Spazio", back_populates="aziende")
 
-# --- NUOVE TABELLE CONFIGURAZIONE INDICI (SENZA FORMULA) ---
+# [CONFIGURAZIONI]
 class ConfigIndice(Base):
     __tablename__ = 'config_indici'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    codice_indice = Column(String, unique=True, nullable=False)  # Es. 'IND_DSCR'
-    nome_indice = Column(String, nullable=False)                 # Es. 'D.S.C.R. a 6 mesi'
+    codice_indice = Column(String, unique=True, nullable=False)
+    nome_indice = Column(String, nullable=False)
     
     soglie = relationship("SogliaIndice", back_populates="indice", cascade="all, delete-orphan")
 
@@ -123,13 +133,13 @@ class SogliaIndice(Base):
     __tablename__ = 'soglie_indici'
     id = Column(Integer, primary_key=True, autoincrement=True)
     indice_id = Column(Integer, ForeignKey('config_indici.id', ondelete='CASCADE'), nullable=False)
-    codice_ateco_settore = Column(String(6), nullable=False)     # Settore ISTAT/ATECO
-    valore_soglia = Column(String, nullable=False)               # Valore limite
-    operatore_confronto = Column(String, default='<')            # Es. '<', '>'
+    codice_ateco_settore = Column(String(6), nullable=False)
+    valore_soglia = Column(String, nullable=False)
+    operatore_confronto = Column(String, default='<')
     
     indice = relationship("ConfigIndice", back_populates="soglie")
 
-# Creazione tabelle
+# Creazione tabelle automatiche su PostgreSQL (Railway)
 Base.metadata.create_all(bind=engine)
 
 # --- INIZIALIZZAZIONE FASTAPI ---
@@ -149,13 +159,49 @@ def get_db():
     finally:
         db.close()
 
+# --- SCHEMI PYDANTIC PER IL POPOLAMENTO ---
 class LoginRequest(BaseModel):
     username: str
     password: str
 
+class TipologiaUtenteCreate(BaseModel):
+    codice_ruolo: str
+    nome_ruolo: str
+    descrizione: str = None
+
+# --- ENDPOINTS ---
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+# Endpoint per fornire la struttura del menu laterale pulito alla UI del Super Admin
+@app.get("/superadmin/menu")
+def get_superadmin_menu():
+    return {
+        "ANAGRAFICHE": ["Anagrafica utenti", "Anagrafica spazi"],
+        "COLLEGAMENTI": ["Configurazione XBRL", "Configurazione ISTAT"],
+        "CONFIGURAZIONI": ["Check list", "Indici", "Report"],
+        "TABELLE": ["Tipologia utente"],
+        "SISTEMA": ["Profilo XBRL", "Licenze"]
+    }
+
+# Endpoint operativo per iniziare a popolare le tipologie utente nel DB
+@app.post("/superadmin/tipologie-utente")
+def create_tipologia_utente(req: TipologiaUtenteCreate, db: Session = Depends(get_db)):
+    esistente = db.query(TipologiaUtente).filter(TipologiaUtente.codice_ruolo == req.codice_ruolo).first()
+    if esistente:
+        raise HTTPException(status_code=400, detail="Codice ruolo già esistente")
+    
+    nuova_tipologia = TipologiaUtente(
+        codice_ruolo=req.codice_ruolo,
+        nome_ruolo=req.nome_ruolo,
+        descrizione=req.descrizione
+    )
+    db.add(nuova_tipologia)
+    db.commit()
+    db.refresh(nuova_tipologia)
+    return {"status": "success", "id": nueva_tipologia.id}
 
 @app.post("/login")
 def login(req: LoginRequest, db: Session = Depends(get_db)):
@@ -173,7 +219,7 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Utente non trovato")
         
     if utente.tentativi_falliti >= 5:
-        raise HTTPException(status_code=403, detail="Account bloccato per troppi tentativi falliti")
+        raise HTTPException(status_code=403, detail="Account bloccato")
         
     if not pwd_context.verify(req.password, utente.password_hash):
         utente.tentativi_falliti += 1
@@ -183,19 +229,7 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
     utente.tentativi_falliti = 0
     db.commit()
     
-    user_payload = {"role": utente.ruolo_base.value, "spazio_id": utente.spazio_id}
+    user_payload = {"role": utente.tipologia.codice_ruolo, "spazio_id": utente.spazio_id}
     payload_b64 = base64.urlsafe_b64encode(json.dumps(user_payload).encode()).decode().rstrip("=")
     token = f"userHeader.{payload_b64}.userSignature"
     return {"token": token}
-
-@app.get("/tenants")
-def get_tenants():
-    return [
-        {
-            "id": "1",
-            "name": "Studio Professionale Rossi (Test DB)",
-            "type": "Studio Professionale",
-            "max_users": 5,
-            "max_companies": 10
-        }
-    ]
