@@ -1,23 +1,22 @@
-from fastapi import FastAPI, Depends, HTTPException
-from sqlalchemy.orm import Session
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware 
 
-# Importiamo i componenti necessari dagli altri moduli del progetto 📦
-from database import engine, Base, get_db
-from models import Spazio
+app = FastAPI()
 
-# Creiamo le tabelle nel database se non esistono ancora (utile su Railway) 🛠️
-Base.metadata.create_all(bind=engine)
+# Definiamo i domini autorizzati a chiamare le API
+origins = [
+    "https://cciiplatform.vercel.app",
+    "http://localhost:3000", # Utile per testare in locale
+]
 
-app = FastAPI(
-    title="Gestione Spazi API",
-    description="API per la gestione delle licenze e degli spazi di lavoro",
-    version="1.0.0"
+# Aggiungiamo il middleware CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"], # Consente tutti i metodi (GET, POST, ecc.)
+    allow_headers=["*"], # Consente tutti gli header
 )
-
-# --- ROTTE DELL'APPLICAZIONE (ENDPOINTS) ---
-
-# --- ROTTE DELL'APPLICAZIONE (ENDPOINTS) ---
-
 @app.get("/")
 def home():
     return {"status": "running", "message": "API Spazi funzionante correttamente"}
