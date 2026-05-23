@@ -1,21 +1,27 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware 
+from fastapi import FastAPI, Depends # 👈 Modifica: Aggiunto Depends
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+
+from database import engine, Base, get_db
+from models import Spazio
+
+# Creazione tabelle (da mantenere se necessario all'avvio)
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-# Definiamo i domini autorizzati a chiamare le API
+# Configurazione CORS
 origins = [
     "https://cciiplatform.vercel.app",
-    "http://localhost:3000", # Utile per testare in locale
+    "http://localhost:3000",
 ]
 
-# Aggiungiamo il middleware CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"], # Consente tutti i metodi (GET, POST, ecc.)
-    allow_headers=["*"], # Consente tutti gli header
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 @app.get("/")
 def home():
