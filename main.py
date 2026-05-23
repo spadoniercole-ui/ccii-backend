@@ -4,7 +4,7 @@ import json
 from datetime import date
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse  # 👈 Importato per servire la pagina HTML
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, Column, Integer, String, Date, Boolean, ForeignKey, Table
 from sqlalchemy.orm import relationship, declarative_base, sessionmaker, Session
@@ -89,13 +89,13 @@ class ProfiloUtente(Base):
 class TipologiaUtente(Base):
     __tablename__ = 'tipologie_utente'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    codice_ruolo = Column(String, unique=True, nullable=False)  # Es. 'ADMIN_SPAZIO'
-    nome_ruolo = Column(String, nullable=False)                # Es. 'Amministratore Spazio'
+    codice_ruolo = Column(String, unique=True, nullable=False)
+    nome_ruolo = Column(String, nullable=False)
     descrizione = Column(String, nullable=True)
 
     utenti = relationship("Utente", back_populates="tipologia")
 
-# [ANAGRAFICHE] Collegata a Spazi, Profili e Tipologie
+# [ANAGRAFICHE]
 class Utente(Base):
     __tablename__ = 'utenti'
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -141,7 +141,6 @@ class SogliaIndice(Base):
     
     indice = relationship("ConfigIndice", back_populates="soglie")
 
-# Creazione tabelle automatiche
 Base.metadata.create_all(bind=engine)
 
 # --- INIZIALIZZAZIONE FASTAPI ---
@@ -182,24 +181,17 @@ class LicenzaCreate(BaseModel):
 
 @app.get("/", response_class=HTMLResponse)
 def home():
-    # Iniettiamo direttamente il nuovo codice con la barra laterale scura
-    return """
-    <!DOCTYPE html>
-    <html lang="it">
-    <head>
-        <meta charset="UTF-8">
-        <title>Super Admin Dashboard - CCII Web 2.0</title>
-        <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    </head>
-    <body class="bg-slate-50 text-slate-800 font-sans b-block">
-        <div class="p-8">
-            <h1 class="text-2xl font-bold text-indigo-600">Nuova Dashboard HARDCODED</h1>
-            <p class="text-sm text-slate-600 mt-2">Se vedi questa scritta, il backend si è aggiornato correttamente!</p>
-        </div>
-    </body>
-    </html>
-    """
-# 1. Configurazione Menu Dashboard Super Admin
+    try:
+        with open("templates/index.html", "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return "<h3>Errore: File 'templates/index.html' non trovato.</h3>"
+
+# 🟢 NUOVO: Rotta temporanea di compatibilità per il vecchio frontend
+@app.get("/tenants")
+def get_old_tenants():
+    return []
+
 @app.get("/superadmin/menu")
 def get_superadmin_menu():
     return {
@@ -210,29 +202,26 @@ def get_superadmin_menu():
         "SISTEMA": ["Profilo XBRL", "Licenze"]
     }
 
-# 2. TABELLE ➡️ Inserimento Tipologia Utente
 @app.post("/superadmin/tipologie-utente")
 def create_tipologia_utente(req: TipologiaUtenteCreate, db: Session = Depends(get_db)):
     esistente = db.query(TipologiaUtente).filter(TipologiaUtente.codice_ruolo == req.codice_ruolo).first()
     if esistente:
-        raise HTTPException(status_code=400, detail="Codice ruolo già registrato nel database")
-    
-    nuova_tipologia = TipologiaUtente(
-        codice_ruolo=req.codice_ruolo,
-        nome_ruolo=req.nome_ruolo,
-        descrizione=req.descrizione
-    )
+        raise HTTPException(status_code=400, detail="Codice ruolo già registrato")
+    nuova_tipologia = TipologiaUtente(codice_ruolo=req.codice_ruolo, nome_ruolo=req.nome_ruolo, descrizione=req.descrizione)
     db.add(nuova_tipologia)
     db.commit()
     db.refresh(nuova_tipologia)
     return {"status": "success", "id": nuova_tipologia.id}
 
-# 3. SISTEMA ➡️ Inserimento Licenze
+@app.get("/superadmin/licenze")
+def get_licenze(db: Session = Depends(get_db)):
+    licenze = db.query(Licenza).all()
+    return licenze
+
 @app.post("/superadmin/licenze")
 def create_licenza(req: LicenzaCreate, db: Session = Depends(get_db)):
     if req.data_scadenza <= date.today():
         raise HTTPException(status_code=400, detail="La data di scadenza della licenza deve essere futura")
-        
     nuova_licenza = Licenza(
         intestatario=req.intestatario,
         max_spazi=req.max_spazi,
@@ -245,34 +234,10 @@ def create_licenza(req: LicenzaCreate, db: Session = Depends(get_db)):
     db.refresh(nuova_licenza)
     return {"status": "success", "id": nuova_licenza.id}
 
-# 4. Autenticazione (Login)
 @app.post("/login")
 def login(req: LoginRequest, db: Session = Depends(get_db)):
-    if req.username == "SuperAdmin":
-        if req.password == "CCIIWeb2.0":
-            fake_payload = {"role": "SUPER_ADMIN"}
-            payload_b64 = base64.urlsafe_b64encode(json.dumps(fake_payload).encode()).decode().rstrip("=")
-            fake_token = f"fakeHeader.{payload_b64}.fakeSignature"
-            return {"token": fake_token}
-        else:
-            raise HTTPException(status_code=401, detail="Credenziali errate")
-    
-    utente = db.query(Utente).filter(Utente.username == req.username).first()
-    if not utente:
-        raise HTTPException(status_code=401, detail="Utente non trovato")
-        
-    if utente.tentativi_falliti >= 5:
-        raise HTTPException(status_code=403, detail="Account bloccato per motivi di sicurezza")
-        
-    if not pwd_context.verify(req.password, utente.password_hash):
-        utente.tentativi_falliti += 1
-        db.commit()
-        raise HTTPException(status_code=401, detail="Credenziali errate")
-        
-    utente.tentativi_falliti = 0
-    db.commit()
-    
-    user_payload = {"role": utente.tipologia.codice_ruolo, "spazio_id": utente.spazio_id}
-    payload_b64 = base64.urlsafe_b64encode(json.dumps(user_payload).encode()).decode().rstrip("=")
-    token = f"userHeader.{payload_b64}.userSignature"
-    return {"token": token}
+    if req.username == "SuperAdmin" and req.password == "CCIIWeb2.0":
+        fake_payload = {"role": "SUPER_ADMIN"}
+        payload_b64 = base64.urlsafe_b64encode(json.dumps(fake_payload).encode()).decode().rstrip("=")
+        return {"token": f"fakeHeader.{payload_b64}.fakeSignature"}
+    raise HTTPException(status_code=401, detail="Credenziali errate")
