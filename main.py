@@ -12,12 +12,11 @@ from models import Spazio, User, Role, Licenza
 # Genera le tabelle nel database se non esistono
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI()
+from fastapi.middleware.cors import CORSMiddleware
 
-# Configurazione CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://cciiplatform.vercel.app"],
+    allow_origins=["*"], # In produzione, metti l'URL del tuo frontend
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
