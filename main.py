@@ -7,6 +7,8 @@ from pydantic import BaseModel
 from database import engine, Base, get_db
 from models import Spazio, User, Role
 
+import os
+
 # Genera le tabelle nel database se non esistono
 Base.metadata.create_all(bind=engine)
 
