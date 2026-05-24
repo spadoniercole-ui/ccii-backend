@@ -87,6 +87,21 @@ def get_tenants(db: Session = Depends(get_db)):
     spazi = db.query(Spazio).all()
     return [{"id": s.id, "nome": s.nome} for s in spazi]
 
+# --- ROTTE CONFIGURAZIONI ---
+
+@app.get("/configurazioni")
+def get_configurazioni(db: Session = Depends(get_db)):
+    return {
+        "status": "success",
+        "data": {
+            "tema": "default",
+            "feature_flags": {
+                "nuova_dashboard": True,
+                "modalita_manutenzione": False
+            }
+        }
+    }
+
 # --- ROTTE SUPER ADMIN (Gestione Licenze) ---
 
 @app.get("/superadmin/licenze")
@@ -99,7 +114,7 @@ def get_licenze(db: Session = Depends(get_db)):
             "max_spazi": l.max_spazi,
             "max_utenti_totali": l.max_utenti_totali,
             "max_aziende_totali": l.max_aziende_totali,
-            "data_scadenza": str(l.data_scadenza) # Convertito in stringa per sicurezza JSON
+            "data_scadenza": str(l.data_scadenza)
         } for l in licenze
     ]
 
