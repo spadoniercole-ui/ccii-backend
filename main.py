@@ -3,10 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 from pydantic import BaseModel
-import os
+from typing import List
 
 from database import engine, Base, get_db
-from models import Spazio, User, Role
+# ASSICURATI che 'Licenza' sia presente nel tuo file models.py
+from models import Spazio, User, Role, Licenza 
 
 # Genera le tabelle nel database se non esistono
 Base.metadata.create_all(bind=engine)
@@ -22,15 +23,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- SCHEMI DATI ---
+
 class LoginRequest(BaseModel):
     username: str
     password: str
 
-class SpazioCreate(BaseModel):
-    nome: str
-    tipologia: str
-    max_utenti: int
-    max_aziende: int
+class LicenzaCreate(BaseModel):
+    intestatario: str
+    max_spazi: int
+    max_utenti_totali: int
+    max_aziende_totali: int
+    data_scadenza: str # Ricevuto come stringa YYYY-MM-DD
+
+# --- ROTTE ---
 
 @app.get("/")
 def home():
@@ -38,7 +44,7 @@ def home():
 
 @app.post("/login")
 def login(credentials: LoginRequest, db: Session = Depends(get_db)):
-    # --- 1. LOGICA SUPER ADMIN (Bypass del Database) ---
+    # 1. Bypass Super Admin
     if credentials.username == "SuperAdmin" and credentials.password == "CCIIWeb2.0":
         return {
             "status": "success",
@@ -48,11 +54,12 @@ def login(credentials: LoginRequest, db: Session = Depends(get_db)):
             "alerts": ["Accesso come Super Admin attivo"]
         }
 
-    # --- 2. LOGICA UTENTI NORMALI ---
+    # 2. Login Standard
     user = db.query(User).filter(User.email == credentials.username).first()
     if not user:
         raise HTTPException(status_code=401, detail="Credenziali non valide")
 
+    # Logica scadenze
     ora = datetime.now(timezone.utc)
     alert_messaggi = []
 
@@ -64,13 +71,6 @@ def login(credentials: LoginRequest, db: Session = Depends(get_db)):
         elif giorni_licenza < 15:
             alert_messaggi.append(f"Attenzione: La licenza dello spazio scade tra {giorni_licenza} giorni.")
 
-    if user.data_scadenza_password:
-        giorni_password = (user.data_scadenza_password.replace(tzinfo=timezone.utc) - ora).days
-        if giorni_password <= 0:
-            raise HTTPException(status_code=403, detail="Accesso bloccato: Password scaduta.")
-        elif giorni_password < 15:
-            alert_messaggi.append(f"Attenzione: La tua password scade tra {giorni_password} giorni.")
-
     return {
         "status": "success",
         "user_id": user.id,
@@ -79,39 +79,39 @@ def login(credentials: LoginRequest, db: Session = Depends(get_db)):
         "alerts": alert_messaggi
     }
 
-# --- NUOVE ROTTE PER LA DASHBOARD ---
+# --- ROTTE TENANTS ---
 
 @app.get("/tenants")
 def get_tenants(db: Session = Depends(get_db)):
-    """Restituisce la lista di tutti gli spazi (tenants)"""
     spazi = db.query(Spazio).all()
+    return [{"id": s.id, "nome": s.nome} for s in spazi]
+
+# --- ROTTE SUPER ADMIN (Gestione Licenze) ---
+
+@app.get("/superadmin/licenze")
+def get_licenze(db: Session = Depends(get_db)):
+    licenze = db.query(Licenza).all()
     return [
         {
-            "id": s.id,
-            "nome": s.nome,
-            "data_scadenza": s.data_scadenza_licenza
-        } for s in spazi
+            "id": l.id,
+            "intestatario": l.intestatario,
+            "max_spazi": l.max_spazi,
+            "max_utenti_totali": l.max_utenti_totali,
+            "max_aziende_totali": l.max_aziende_totali,
+            "data_scadenza": l.data_scadenza
+        } for l in licenze
     ]
 
-@app.post("/tenants")
-def create_tenant(dati: SpazioCreate, db: Session = Depends(get_db)):
-    """Crea un nuovo spazio"""
-    nuovo_spazio = Spazio(
-        nome=dati.nome,
-        # Assicurati che i campi corrispondano al tuo modello Spazio in models.py
+@app.post("/superadmin/licenze")
+def create_licenza(dati: LicenzaCreate, db: Session = Depends(get_db)):
+    nuova_licenza = Licenza(
+        intestatario=dati.intestatario,
+        max_spazi=dati.max_spazi,
+        max_utenti_totali=dati.max_utenti_totali,
+        max_aziende_totali=dati.max_aziende_totali,
+        data_scadenza=datetime.strptime(dati.data_scadenza, "%Y-%m-%d").date()
     )
-    db.add(nuovo_spazio)
+    db.add(nuova_licenza)
     db.commit()
-    db.refresh(nuovo_spazio)
-    return {"status": "success", "id": nuovo_spazio.id}
-
-@app.get("/spazi/{spazio_id}")
-def leggi_spazio(spazio_id: int, db: Session = Depends(get_db)):
-    spazio = db.query(Spazio).filter(Spazio.id == spazio_id).first()
-    if spazio is None:
-        raise HTTPException(status_code=404, detail="Spazio non trovato")
-    return {
-        "id": spazio.id,
-        "nome": spazio.nome,
-        "data_scadenza": spazio.data_scadenza_licenza
-    }
+    db.refresh(nuova_licenza)
+    return {"status": "success", "id": nuova_licenza.id}
