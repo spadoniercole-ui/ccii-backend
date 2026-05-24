@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from datetime import datetime
 from pydantic import BaseModel
+import os
 
 from database import engine, Base, get_db
 from models import Spazio, User, Role
@@ -12,12 +13,7 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-# Configurazione CORS per permettere al frontend di comunicare col backend
-origins = [
-    "https://cciiplatform.vercel.app",
-    "http://localhost:3000",
-]
-
+# Configurazione CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -26,7 +22,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Schema per i dati in ingresso dal login
 class LoginRequest(BaseModel):
     username: str
     password: str
@@ -37,7 +32,18 @@ def home():
 
 @app.post("/login")
 def login(credentials: LoginRequest, db: Session = Depends(get_db)):
-    # 1. Verifica esistenza utente
+    # 1. LOGICA SUPER ADMIN (Hardcoded - bypassa DB)
+    # Suggerimento: sostituisci le stringhe dirette con os.getenv("SUPERADMIN_EMAIL", "...")
+    if credentials.username == "superadmin@azienda.it" and credentials.password == "tua_password_segreta":
+        return {
+            "status": "success",
+            "user_id": 0,
+            "email": "superadmin@azienda.it",
+            "ruolo": "SuperAdmin",
+            "alerts": ["Accesso effettuato come Super Admin"]
+        }
+
+    # 2. Verifica esistenza utente nel Database
     user = db.query(User).filter(User.email == credentials.username).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenziali errate")
@@ -45,8 +51,8 @@ def login(credentials: LoginRequest, db: Session = Depends(get_db)):
     ora = datetime.utcnow()
     alert_messaggi = []
 
-    # 2. Controllo Licenza dello Spazio
-    spazio = db.query(Spazio).filter(Spazio.id == user.id).first() 
+    # 3. Controllo Licenza dello Spazio (Corretto il riferimento user.spazio_id)
+    spazio = db.query(Spazio).filter(Spazio.id == user.spazio_id).first() 
     
     if spazio and spazio.data_scadenza_licenza:
         giorni_licenza = (spazio.data_scadenza_licenza - ora).days
@@ -54,24 +60,23 @@ def login(credentials: LoginRequest, db: Session = Depends(get_db)):
         if giorni_licenza <= 0:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, 
-                detail="Accesso bloccato: Licenza scaduta. Contattare il reparto commerciale."
+                detail="Accesso bloccato: Licenza scaduta."
             )
         elif giorni_licenza < 15:
             alert_messaggi.append(f"Attenzione: La licenza dello spazio scade tra {giorni_licenza} giorni.")
 
-    # 3. Controllo Scadenza Password
+    # 4. Controllo Scadenza Password
     if user.data_scadenza_password:
         giorni_password = (user.data_scadenza_password - ora).days
 
         if giorni_password <= 0:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, 
-                detail="Accesso bloccato: Password scaduta. Contattare l'Admin di Spazio per il rinnovo."
+                detail="Accesso bloccato: Password scaduta."
             )
         elif giorni_password < 15:
-            alert_messaggi.append(f"Attenzione: La tua password scade tra {giorni_password} giorni. Provvedi al rinnovo tramite l'Admin.")
+            alert_messaggi.append(f"Attenzione: La tua password scade tra {giorni_password} giorni.")
 
-    # 4. Autorizzazione riuscita
     return {
         "status": "success",
         "user_id": user.id,
@@ -86,9 +91,8 @@ def leggi_spazio(spazio_id: int, db: Session = Depends(get_db)):
     if spazio is None:
         raise HTTPException(status_code=404, detail="Spazio non trovato")
         
-    return {
+   return {
         "id": spazio.id,
-        "licenza_id": spazio.licenza_id,
-        "nome_spazio": spazio.nome_spazio,
-        "tipologia": spazio.tipologia
+        "nome": spazio.nome,
+        "data_scadenza": spazio.data_scadenza_licenza
     }
