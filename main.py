@@ -31,6 +31,7 @@ def home():
     return {"status": "running", "message": "API funzionante correttamente"}
 
 @app.post("/login")
+print(f"DEBUG: Input {credentials.username} vs Config {admin_email}")
 def login(credentials: LoginRequest, db: Session = Depends(get_db)):
     # 1. LOGICA SUPER ADMIN
     # Nota: utilizza variabili d'ambiente per le credenziali sensibili
