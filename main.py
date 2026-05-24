@@ -5,22 +5,24 @@ from datetime import datetime, timezone
 from pydantic import BaseModel
 from typing import List
 
+# Import dei modelli e database
 from database import engine, Base, get_db
-# ASSICURATI che 'Licenza' sia presente nel tuo file models.py
 from models import Spazio, User, Role, Licenza 
 
-# Genera le tabelle nel database se non esistono
-Base.metadata.create_all(bind=engine)
+# 1. Inizializza l'app PRIMA di usarla
+app = FastAPI()
 
-from fastapi.middleware.cors import CORSMiddleware
-
+# 2. Configura il middleware DOPO aver creato l'app
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In produzione, metti l'URL del tuo frontend
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Genera le tabelle nel database
+Base.metadata.create_all(bind=engine)
 
 # --- SCHEMI DATI ---
 
@@ -33,7 +35,7 @@ class LicenzaCreate(BaseModel):
     max_spazi: int
     max_utenti_totali: int
     max_aziende_totali: int
-    data_scadenza: str # Ricevuto come stringa YYYY-MM-DD
+    data_scadenza: str # Formato YYYY-MM-DD
 
 # --- ROTTE ---
 
@@ -97,7 +99,7 @@ def get_licenze(db: Session = Depends(get_db)):
             "max_spazi": l.max_spazi,
             "max_utenti_totali": l.max_utenti_totali,
             "max_aziende_totali": l.max_aziende_totali,
-            "data_scadenza": l.data_scadenza
+            "data_scadenza": str(l.data_scadenza) # Convertito in stringa per sicurezza JSON
         } for l in licenze
     ]
 
