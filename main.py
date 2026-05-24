@@ -31,12 +31,13 @@ def home():
     return {"status": "running", "message": "API funzionante correttamente"}
 
 @app.post("/login")
-print(f"DEBUG: Input {credentials.username} vs Config {admin_email}")
 def login(credentials: LoginRequest, db: Session = Depends(get_db)):
-    # 1. LOGICA SUPER ADMIN
-    # Nota: utilizza variabili d'ambiente per le credenziali sensibili
+    # Configurazione variabili ambiente
     admin_email = os.getenv("SUPERADMIN_EMAIL", "superadmin@azienda.it")
     admin_pass = os.getenv("SUPERADMIN_PASSWORD", "tua_password_segreta")
+    
+    # Stampa di debug per verificare cosa arriva
+    print(f"DEBUG: Input {credentials.username} vs Config {admin_email}")
     
     if credentials.username == admin_email and credentials.password == admin_pass:
         return {
@@ -47,14 +48,25 @@ def login(credentials: LoginRequest, db: Session = Depends(get_db)):
             "alerts": ["Accesso effettuato come Super Admin"]
         }
 
-    # 2. Verifica esistenza utente nel Database
+    # Verifica utente nel Database
     user = db.query(User).filter(User.email == credentials.username).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenziali errate")
         
+    # ... resto del codice ...
     ora = datetime.now(timezone.utc)
     alert_messaggi = []
-
+    
+    # [Assicurati di mantenere qui il resto della tua logica di controllo licenza/password]
+    # ...
+    
+    return {
+        "status": "success",
+        "user_id": user.id,
+        "email": user.email,
+        "ruolo": user.role.name if user.role else "Nessun ruolo",
+        "alerts": alert_messaggi
+    }
     # 3. Controllo Licenza dello Spazio
     spazio = db.query(Spazio).filter(Spazio.id == user.spazio_id).first() 
     
