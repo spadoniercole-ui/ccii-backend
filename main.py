@@ -1,94 +1,79 @@
-from fastapi import FastAPI, Depends, HTTPException, status
-from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
-from datetime import datetime, timezone
-from pydantic import BaseModel
+"use client";
 
-from database import engine, Base, get_db
-from models import Spazio, User, Role
+import { useState } from "react";
+import SuperAdminDashboard from "../components/SuperAdminDashboard";
 
-import os
+const API = "https://cciiplatform-production.up.railway.app";
 
-# Genera le tabelle nel database se non esistono
-Base.metadata.create_all(bind=engine)
+export default function Page() {
+  const [token, setToken] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(null);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
 
-app = FastAPI()
+  const login = async () => {
+    try {
+      const res = await fetch(`${API}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ username, password })
+      });
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+      if (res.status !== 200) {
+        alert("Errore login");
+        return;
+      }
 
-class LoginRequest(BaseModel):
-    username: str
-    password: str
+      const data = await res.json();
+      const tokenValue = data.access_token || data.token;
 
-@app.get("/")
-def home():
-    return {"status": "running", "message": "API funzionante correttamente"}
-
-@app.post("/login")
-def login(credentials: LoginRequest, db: Session = Depends(get_db)):
-    # 1. Controllo immediato per il SuperAdmin (Bypass)
-    if credentials.username == "SuperAdmin" and credentials.password == "CCIIWeb2.0":
-        # Qui dovresti generare o restituire il token che la tua app si aspetta
-        return {"access_token": "token_superadmin_fisso", "token_type": "bearer"}
-
-    # 2. Se non è il SuperAdmin, prosegui con la normale logica del database
-    user = db.query(User).filter(User.username == credentials.username).first()
-    
-    if not user:
-        raise HTTPException(status_code=401, detail="Credenziali non valide")
-    
-    # ... resto della tua logica di validazione password (es. bcrypt.verify) ...
-    # 2. Verifica Password (decommenta e implementa quando necessario)
-    # if not verify_password(credentials.password, user.password):
-    #     raise HTTPException(status_code=401, detail="Credenziali non valide")
-
-    # 3. Setup controlli
-    ora = datetime.now(timezone.utc)
-    alert_messaggi = []
-    
-    # 4. Controllo Licenza Spazio
-    if user.spazio and user.spazio.data_scadenza_licenza:
-        scadenza_licenza = user.spazio.data_scadenza_licenza.replace(tzinfo=timezone.utc)
-        giorni_licenza = (scadenza_licenza - ora).days
-        
-        if giorni_licenza <= 0:
-            raise HTTPException(status_code=403, detail="Accesso bloccato: Licenza scaduta.")
-        elif giorni_licenza < 15:
-            alert_messaggi.append(f"Attenzione: La licenza dello spazio scade tra {giorni_licenza} giorni.")
-
-    # 5. Controllo Scadenza Password
-    if user.data_scadenza_password:
-        scadenza_pass = user.data_scadenza_password.replace(tzinfo=timezone.utc)
-        giorni_password = (scadenza_pass - ora).days
-
-        if giorni_password <= 0:
-            raise HTTPException(status_code=403, detail="Accesso bloccato: Password scaduta.")
-        elif giorni_password < 15:
-            alert_messaggi.append(f"Attenzione: La tua password scade tra {giorni_password} giorni.")
-
-    # 6. Risposta finale
-    return {
-        "status": "success",
-        "user_id": user.id,
-        "email": user.email,
-        "ruolo": user.role.name if user.role else "Nessun ruolo",
-        "alerts": alert_messaggi
+      // Gestione sicura del token
+      if (tokenValue === "token_superadmin_fisso") {
+        setToken(tokenValue);
+        setRole("SUPER_ADMIN");
+      } else if (tokenValue && typeof tokenValue === 'string' && tokenValue.includes('.')) {
+        const payload = JSON.parse(atob(tokenValue.split(".")[1]));
+        setToken(tokenValue);
+        setRole(payload.role);
+      } else {
+        alert("Formato token non riconosciuto");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Errore chiamata API");
     }
+  };
 
-@app.get("/spazi/{spazio_id}")
-def leggi_spazio(spazio_id: int, db: Session = Depends(get_db)):
-    spazio = db.query(Spazio).filter(Spazio.id == spazio_id).first()
-    if spazio is None:
-        raise HTTPException(status_code=404, detail="Spazio non trovato")
-    
-    return {
-        "id": spazio.id,
-        "nome": spazio.nome,
-        "data_scadenza": spazio.data_scadenza_licenza
-    }
+  if (!token) {
+    return (
+      <div style={{ padding: 40 }}>
+        <h1>Login CCII</h1>
+
+        <input
+          placeholder="Username"
+          onChange={(e) => setUsername(e.target.value)}
+        />
+
+        <br /><br />
+
+        <input
+          type="password"
+          placeholder="Password"
+          onChange={(e) => setPassword(e.target.value)}
+        />
+
+        <br /><br />
+
+        <button onClick={login}>Login</button>
+      </div>
+    );
+  }
+
+  if (role === "SUPER_ADMIN") {
+    return <SuperAdminDashboard token={token} />;
+  }
+
+  return <h1>Utente autenticato</h1>;
+}
