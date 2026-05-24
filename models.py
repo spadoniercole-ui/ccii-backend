@@ -49,7 +49,7 @@ class ProfiloModulo(Base):
     data_fine = Column(DateTime, nullable=True)
     versione = Column(Integer, default=1)
     is_old = Column(Integer, default=0)
-    profilo = relationship("Profilo", back_moduli="moduli") # Corretto il back_populates
+    profilo = relationship("Profilo", back_populates="moduli") # Corretto il back_populates
 
 class Licenza(Base):
     __tablename__ = "licenze"
