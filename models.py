@@ -1,6 +1,31 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func
 from sqlalchemy.orm import relationship
-from database import Base  # Import assoluto, no punto iniziale
+from database import Base
+
+class Role(Base):
+    __tablename__ = "roles"
+    id = Column(Integer, primary_key=True)
+    name = Column(String, unique=True, nullable=False)
+    users = relationship("User", back_populates="role")
+
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True)
+    email = Column(String, unique=True, nullable=False)
+    password = Column(String, nullable=False)
+    data_scadenza_password = Column(DateTime, nullable=True)
+    role_id = Column(Integer, ForeignKey("roles.id"))
+    spazio_id = Column(Integer, ForeignKey("spazi.id"))
+    
+    role = relationship("Role", back_populates="users")
+    spazio = relationship("Spazio", back_populates="users")
+
+class Spazio(Base):
+    __tablename__ = "spazi"
+    id = Column(Integer, primary_key=True)
+    nome = Column(String, nullable=False)
+    data_scadenza_licenza = Column(DateTime, nullable=True)
+    users = relationship("User", back_populates="spazio")
 
 class Configurazione(Base):
     __tablename__ = "configurazioni"
