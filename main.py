@@ -84,14 +84,12 @@ def login(credentials: LoginRequest, db: Session = Depends(get_db)):
         "ruolo": user.role.name if user.role else "Nessun ruolo",
         "alerts": alert_messaggi
     }
-
 @app.get("/spazi/{spazio_id}")
 def leggi_spazio(spazio_id: int, db: Session = Depends(get_db)):
     spazio = db.query(Spazio).filter(Spazio.id == spazio_id).first()
     if spazio is None:
         raise HTTPException(status_code=404, detail="Spazio non trovato")
-        
-   return {
+       return {
         "id": spazio.id,
         "nome": spazio.nome,
         "data_scadenza": spazio.data_scadenza_licenza
