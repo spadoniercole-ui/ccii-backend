@@ -50,3 +50,15 @@ class ProfiloModulo(Base):
     versione = Column(Integer, default=1)
     is_old = Column(Integer, default=0)
     profilo = relationship("Profilo", back_populates="moduli")
+from sqlalchemy import Column, Integer, String, Date # Assicurati di importare Date
+# ... (altri import esistenti)
+
+class Licenza(Base):
+    __tablename__ = "licenze"
+
+    id = Column(Integer, primary_key=True, index=True)
+    intestatario = Column(String, nullable=False)
+    max_spazi = Column(Integer, default=1)
+    max_utenti_totali = Column(Integer, default=1)
+    max_aziende_totali = Column(Integer, default=1)
+    data_scadenza = Column(Date, nullable=False)
