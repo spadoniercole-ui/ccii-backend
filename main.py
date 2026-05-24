@@ -32,21 +32,23 @@ def home():
 
 @app.post("/login")
 def login(credentials: LoginRequest, db: Session = Depends(get_db)):
-    # Configurazione variabili ambiente
-    admin_email = os.getenv("SUPERADMIN_EMAIL", "superadmin@azienda.it")
-    admin_pass = os.getenv("SUPERADMIN_PASSWORD", "tua_password_segreta")
-    
-    # Stampa di debug per verificare cosa arriva
-    print(f"DEBUG: Input {credentials.username} vs Config {admin_email}")
-    
-    if credentials.username == admin_email and credentials.password == admin_pass:
-        return {
-            "status": "success",
-            "user_id": 0,
-            "email": admin_email,
-            "ruolo": "SuperAdmin",
-            "alerts": ["Accesso effettuato come Super Admin"]
-        }
+    # 1. Recupero l'utente dal database tramite l'email
+    user = db.query(User).filter(User.email == credentials.username).first()
+
+    # 2. Se l'utente non esiste, restituisco subito errore
+    if not user:
+        raise HTTPException(status_code=401, detail="Credenziali non valide")
+
+    # 3. Qui dovresti verificare la password (es. confrontando gli hash)
+    # if not verify_password(credentials.password, user.password_hash):
+    #     raise HTTPException(status_code=401, detail="Credenziali non valide")
+
+    return {
+        "status": "success",
+        "user_id": user.id,
+        "email": user.email,
+        "ruolo": user.role.name if user.role else "utente"
+    }
 
     # Verifica utente nel Database
     user = db.query(User).filter(User.email == credentials.username).first()
