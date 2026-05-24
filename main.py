@@ -30,6 +30,9 @@ def home():
 
 @app.post("/login")
 def login(credentials: LoginRequest, db: Session = Depends(get_db)):
+    # Inserisci qui i print
+    print(f"DEBUG: Input Email: '{credentials.username}', Input Pass: '{credentials.password}'")
+    print(f"DEBUG: Env Email: '{os.getenv('SUPERADMIN_EMAIL')}'")
     # 1. Recupero utente
     user = db.query(User).filter(User.email == credentials.username).first()
     
