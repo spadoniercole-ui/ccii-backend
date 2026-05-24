@@ -7,7 +7,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
     # Se la variabile è vuota o assente, usa SQLite locale
-    DATABASE_URL = "sqlite:///./test.db"
+    DATABASE_URL = "ghcr.io/railwayapp-templates/postgres-ssl:18"
 elif DATABASE_URL.startswith("postgres://"):
     # Railway spesso usa "postgres://", ma SQLAlchemy vuole "postgresql://"
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
