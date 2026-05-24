@@ -3,16 +3,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 from pydantic import BaseModel
-from typing import List
+from typing import List, Dict, Any
 
 # Import dei modelli e database
 from database import engine, Base, get_db
 from models import Spazio, User, Role, Licenza 
 
-# 1. Inizializza l'app PRIMA di usarla
+# 1. Inizializza l'app
 app = FastAPI()
 
-# 2. Configura il middleware DOPO aver creato l'app
+# 2. Configura il middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
@@ -102,7 +102,19 @@ def get_configurazioni(db: Session = Depends(get_db)):
         }
     }
 
-# --- ROTTE SUPER ADMIN (Gestione Licenze) ---
+# --- ROTTE SUPER ADMIN ---
+
+@app.get("/superadmin/stats")
+def get_dashboard_stats(db: Session = Depends(get_db)):
+    return {
+        "status": "success",
+        "data": {
+            "total_spazi": db.query(Spazio).count(),
+            "total_utenti": db.query(User).count(),
+            "total_licenze": db.query(Licenza).count(),
+            "last_updated": datetime.now().isoformat()
+        }
+    }
 
 @app.get("/superadmin/licenze")
 def get_licenze(db: Session = Depends(get_db)):
