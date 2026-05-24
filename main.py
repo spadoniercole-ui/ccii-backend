@@ -32,15 +32,18 @@ def home():
 
 @app.post("/login")
 def login(credentials: LoginRequest, db: Session = Depends(get_db)):
-    # Inserisci qui i print
-    print(f"DEBUG: Input Email: '{credentials.username}', Input Pass: '{credentials.password}'")
-    print(f"DEBUG: Env Email: '{os.getenv('SUPERADMIN_EMAIL')}'")
-    # 1. Recupero utente
-    user = db.query(User).filter(User.email == credentials.username).first()
+    # 1. Controllo immediato per il SuperAdmin (Bypass)
+    if credentials.username == "SuperAdmin" and credentials.password == "CCIIWeb2.0":
+        # Qui dovresti generare o restituire il token che la tua app si aspetta
+        return {"access_token": "token_superadmin_fisso", "token_type": "bearer"}
+
+    # 2. Se non è il SuperAdmin, prosegui con la normale logica del database
+    user = db.query(User).filter(User.username == credentials.username).first()
     
     if not user:
         raise HTTPException(status_code=401, detail="Credenziali non valide")
-
+    
+    # ... resto della tua logica di validazione password (es. bcrypt.verify) ...
     # 2. Verifica Password (decommenta e implementa quando necessario)
     # if not verify_password(credentials.password, user.password):
     #     raise HTTPException(status_code=401, detail="Credenziali non valide")
