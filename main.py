@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel
 import os
 
@@ -32,13 +32,16 @@ def home():
 
 @app.post("/login")
 def login(credentials: LoginRequest, db: Session = Depends(get_db)):
-    # 1. LOGICA SUPER ADMIN (Hardcoded - bypassa DB)
-    # Suggerimento: sostituisci le stringhe dirette con os.getenv("SUPERADMIN_EMAIL", "...")
-    if credentials.username == "superadmin@azienda.it" and credentials.password == "tua_password_segreta":
+    # 1. LOGICA SUPER ADMIN
+    # Nota: utilizza variabili d'ambiente per le credenziali sensibili
+    admin_email = os.getenv("SUPERADMIN_EMAIL", "superadmin@azienda.it")
+    admin_pass = os.getenv("SUPERADMIN_PASSWORD", "tua_password_segreta")
+    
+    if credentials.username == admin_email and credentials.password == admin_pass:
         return {
             "status": "success",
             "user_id": 0,
-            "email": "superadmin@azienda.it",
+            "email": admin_email,
             "ruolo": "SuperAdmin",
             "alerts": ["Accesso effettuato come Super Admin"]
         }
@@ -48,14 +51,15 @@ def login(credentials: LoginRequest, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenziali errate")
         
-    ora = datetime.utcnow()
+    ora = datetime.now(timezone.utc)
     alert_messaggi = []
 
-    # 3. Controllo Licenza dello Spazio (Corretto il riferimento user.spazio_id)
+    # 3. Controllo Licenza dello Spazio
     spazio = db.query(Spazio).filter(Spazio.id == user.spazio_id).first() 
     
     if spazio and spazio.data_scadenza_licenza:
-        giorni_licenza = (spazio.data_scadenza_licenza - ora).days
+        # Assicurati che le date nel DB siano aware (con timezone) per il confronto
+        giorni_licenza = (spazio.data_scadenza_licenza.replace(tzinfo=timezone.utc) - ora).days
         
         if giorni_licenza <= 0:
             raise HTTPException(
@@ -67,7 +71,7 @@ def login(credentials: LoginRequest, db: Session = Depends(get_db)):
 
     # 4. Controllo Scadenza Password
     if user.data_scadenza_password:
-        giorni_password = (user.data_scadenza_password - ora).days
+        giorni_password = (user.data_scadenza_password.replace(tzinfo=timezone.utc) - ora).days
 
         if giorni_password <= 0:
             raise HTTPException(
@@ -84,12 +88,15 @@ def login(credentials: LoginRequest, db: Session = Depends(get_db)):
         "ruolo": user.role.name if user.role else "Nessun ruolo",
         "alerts": alert_messaggi
     }
+
 @app.get("/spazi/{spazio_id}")
 def leggi_spazio(spazio_id: int, db: Session = Depends(get_db)):
     spazio = db.query(Spazio).filter(Spazio.id == spazio_id).first()
     if spazio is None:
         raise HTTPException(status_code=404, detail="Spazio non trovato")
-       return {
+    
+    # Ora il return è correttamente allineato al blocco della funzione
+    return {
         "id": spazio.id,
         "nome": spazio.nome,
         "data_scadenza": spazio.data_scadenza_licenza
