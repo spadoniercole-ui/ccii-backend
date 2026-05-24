@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func, Date
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -49,13 +49,10 @@ class ProfiloModulo(Base):
     data_fine = Column(DateTime, nullable=True)
     versione = Column(Integer, default=1)
     is_old = Column(Integer, default=0)
-    profilo = relationship("Profilo", back_populates="moduli")
-from sqlalchemy import Column, Integer, String, Date # Assicurati di importare Date
-# ... (altri import esistenti)
+    profilo = relationship("Profilo", back_moduli="moduli") # Corretto il back_populates
 
 class Licenza(Base):
     __tablename__ = "licenze"
-
     id = Column(Integer, primary_key=True, index=True)
     intestatario = Column(String, nullable=False)
     max_spazi = Column(Integer, default=1)
