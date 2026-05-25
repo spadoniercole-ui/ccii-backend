@@ -5,6 +5,16 @@ print("Python Path:", sys.path)
 # Elenca i file nella cartella corrente per vedere se 'routes' esiste
 print("Files in current directory:", os.listdir('.'))
 
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"message": "Errore interno del sistema. Contattare l'amministratore."},
+    )
+
 from fastapi import FastAPI
 from app.routes.admin_setup import router as admin_setup_router
 
