@@ -66,6 +66,7 @@ pandocfilters==1.5.1
 parso==0.8.6
 passlib==1.7.4
 pexpect==4.9.0
+python-jose[cryptography]
 platformdirs==4.9.4
 prometheus_client==0.24.1
 prompt_toolkit==3.0.52
