@@ -112,4 +112,4 @@ def get_dashboard_stats(
             "total_spazi": db.query(models.Spazio).count(),
             # ... resto del codice
         }
-    }id": nuova_licenza.id}
+   return {"status": "success", "id": nuova_licenza.id}
