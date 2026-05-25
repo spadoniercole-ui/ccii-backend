@@ -10,7 +10,7 @@ engine = create_engine(
     }
 )
 # URL di connessione al database fornito
-SQLALCHEMY_DATABASE_URL = "postgresql://postgres:aQXXZdWkaxudAyYhTGitMsZUQigAhMxi@viaduct.proxy.rlwy.net:48125/railway"
+SQLALCHEMY_DATABASE_URL = "postgresql://postgres:SsiUmLbTiHjrgHxAgiNcjDbXvcLxMCNk@postgres.railway.internal:5432/railway"
 
 # Creazione dell'engine
 # echo=True è utile in fase di debug per vedere le query SQL nei log
