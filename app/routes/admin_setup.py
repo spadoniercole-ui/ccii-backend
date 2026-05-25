@@ -1,8 +1,7 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-# Assumo tu abbia una funzione per verificare lo stato nel DB
-from database import get_db 
-from services.admin_service import admin_service
+# IMPORTANTE: Aggiungi questa riga per importare l'istanza del servizio
+from services.admin_service import admin_service 
 
 router = APIRouter(prefix="/admin-setup", tags=["admin-setup"])
 
@@ -14,7 +13,6 @@ class SetupRequest(BaseModel):
 @router.get("/status")
 def check_setup_status():
     """Controlla se il sistema è già stato inizializzato."""
-    # Logica pragmatica: torna booleano
     is_setup = admin_service.is_initialized() 
     return {"initialized": is_setup}
 
