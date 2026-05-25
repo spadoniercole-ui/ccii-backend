@@ -8,12 +8,16 @@ class Role(Base):
     name = Column(String, unique=True, nullable=False)
     users = relationship("User", back_populates="role")
 
+class TipoSpazio(Base):
+    __tablename__ = "tipi_spazio"
+    id = Column(Integer, primary_key=True)
+    nome = Column(String, nullable=False) # es: Ente, Azienda, etc.
+
 class Spazio(Base):
     __tablename__ = "spazi"
     id = Column(Integer, primary_key=True)
     nome = Column(String, nullable=False)
     data_scadenza_licenza = Column(DateTime, nullable=True)
-    users = relationship("User", back_populates="spazio")
 
 class User(Base):
     __tablename__ = "users"
@@ -61,3 +65,7 @@ class Licenza(Base):
     max_utenti_totali = Column(Integer, default=1)
     max_aziende_totali = Column(Integer, default=1)
     data_scadenza = Column(Date, nullable=False)
+    licenza_id = Column(Integer, ForeignKey("licenze.id"), nullable=True)
+    tipo_spazio_id = Column(Integer, ForeignKey("tipi_spazio.id"), nullable=True)
+    
+    users = relationship("User", back_populates="spazio")
