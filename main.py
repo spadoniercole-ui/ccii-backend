@@ -104,12 +104,12 @@ def create_licenza(
 @app.get("/superadmin/stats")
 def get_dashboard_stats(
     db: Session = Depends(get_db), 
-    admin: models.User = Depends(require_superadmin) # <-- Protezione attivata
+    admin: models.User = Depends(require_superadmin) 
 ):
     return {
         "status": "success",
         "data": {
             "total_spazi": db.query(models.Spazio).count(),
-            # ... resto del codice
+            # ... qui puoi aggiungere le altre statistiche
         }
-   return {"status": "success", "id": nuova_licenza.id}
+    }
