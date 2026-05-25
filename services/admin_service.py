@@ -2,7 +2,6 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 # Assumo tu abbia una funzione per verificare lo stato nel DB
 from database import get_db 
-from services.admin_service import admin_service
 
 router = APIRouter(prefix="/admin-setup", tags=["admin-setup"])
 
