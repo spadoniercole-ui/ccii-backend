@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 # Importazione moduli locali
 from database import engine, Base, get_db, SessionLocal
 import models
-from utils import get_password_hash, verify_password
+from utils import get_password_hash
 from dependencies import require_superadmin
 
 # --- LIFESPAN: Gestione inizializzazione ---
