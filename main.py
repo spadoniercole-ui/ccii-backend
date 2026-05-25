@@ -141,4 +141,13 @@ def create_licenza(
     return {"status": "success", "id": nuova_licenza.id}
 
 @app.get("/superadmin/stats")
-def get_dashboard_stats
+def get_dashboard_stats(
+    db: Session = Depends(get_db), 
+    admin: models.User = Depends(require_superadmin)
+):
+    return {
+        "status": "success",
+        "data": {
+            "total_spazi": db.query(models.Spazio).count(),
+        }
+    }
