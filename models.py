@@ -1,12 +1,6 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func, Date
 from sqlalchemy.orm import relationship
 from database import Base
-from passlib.context import CryptContext
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-def get_password_hash(password):
-    return pwd_context.hash(password)
 
 class Role(Base):
     __tablename__ = "roles"
@@ -55,7 +49,7 @@ class ProfiloModulo(Base):
     data_fine = Column(DateTime, nullable=True)
     versione = Column(Integer, default=1)
     is_old = Column(Integer, default=0)
-    profilo = relationship("Profilo", back_populates="moduli") # Corretto il back_populates
+    profilo = relationship("Profilo", back_populates="moduli")
 
 class Licenza(Base):
     __tablename__ = "licenze"
