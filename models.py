@@ -11,13 +11,24 @@ class Role(Base):
 class TipoSpazio(Base):
     __tablename__ = "tipi_spazio"
     id = Column(Integer, primary_key=True)
-    nome = Column(String, nullable=False) # es: Ente, Azienda, etc.
+    nome = Column(String, nullable=False)
+    # Relazione opzionale per vedere tutti gli spazi di un tipo
+    spazi = relationship("Spazio", back_populates="tipo_spazio")
 
 class Spazio(Base):
     __tablename__ = "spazi"
     id = Column(Integer, primary_key=True)
     nome = Column(String, nullable=False)
     data_scadenza_licenza = Column(DateTime, nullable=True)
+    
+    # Chiavi esterne (spostate qui da Licenza)
+    licenza_id = Column(Integer, ForeignKey("licenze.id"), nullable=True)
+    tipo_spazio_id = Column(Integer, ForeignKey("tipi_spazio.id"), nullable=True)
+    
+    # Relazioni
+    users = relationship("User", back_populates="spazio")
+    tipo_spazio = relationship("TipoSpazio", back_populates="spazi")
+    licenza = relationship("Licenza", back_populates="spazi")
 
 class User(Base):
     __tablename__ = "users"
@@ -26,6 +37,7 @@ class User(Base):
     password = Column(String, nullable=False)
     is_superuser = Column(Boolean, default=False)
     data_scadenza_password = Column(DateTime, nullable=True)
+    
     role_id = Column(Integer, ForeignKey("roles.id"))
     spazio_id = Column(Integer, ForeignKey("spazi.id"))
     
@@ -65,7 +77,6 @@ class Licenza(Base):
     max_utenti_totali = Column(Integer, default=1)
     max_aziende_totali = Column(Integer, default=1)
     data_scadenza = Column(Date, nullable=False)
-    licenza_id = Column(Integer, ForeignKey("licenze.id"), nullable=True)
-    tipo_spazio_id = Column(Integer, ForeignKey("tipi_spazio.id"), nullable=True)
     
-    users = relationship("User", back_populates="spazio")
+    # Relazione inversa
+    spazi = relationship("Spazio", back_populates="licenza")
