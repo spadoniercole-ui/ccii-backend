@@ -1,6 +1,16 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func, Date
+from sqlalchemy import Column, Integer, String, Boolean
 from sqlalchemy.orm import relationship
 from database import Base
+
+class User(Base):
+    __tablename__ = "users"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True)
+    password = Column(String)
+    is_superuser = Column(Boolean, default=False) # <--- AGGIUNGI QUESTA RIGA
+    spazio_id = Column(Integer)
+    role_id = Column(Integer)
 
 class Role(Base):
     __tablename__ = "roles"
