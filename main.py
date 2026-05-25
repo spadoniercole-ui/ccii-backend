@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pydantic import BaseModel
 from typing import List
 from dependencies import require_superadmin
+from utils import verify_password
 
 # Importazione dei moduli
 from database import engine, Base, get_db
