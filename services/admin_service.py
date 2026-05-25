@@ -3,6 +3,16 @@ from models import Licenza, Spazio
 from fastapi import HTTPException
 from datetime import date
 
+import logging
+logger = logging.getLogger(__name__)
+
+# Dentro create_new_space:
+try:
+    # ... logica ...
+except Exception as e:
+    logger.error(f"Errore critico durante creazione spazio: {str(e)}", exc_info=True)
+    raise e
+
 class AdminService:
     def is_initialized(self, db: Session):
         # Verifica se esiste almeno un superuser o una configurazione base
