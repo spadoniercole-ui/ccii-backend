@@ -1,79 +1,46 @@
-import sys
-import os
-print("Current Working Directory:", os.getcwd())
-print("Python Path:", sys.path)
-# Elenca i file nella cartella corrente per vedere se 'routes' esiste
-print("Files in current directory:", os.listdir('.'))
-
-from fastapi import Request
+from fastapi import FastAPI, Request, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
-
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    return JSONResponse(
-        status_code=500,
-        content={"message": "Errore interno del sistema. Contattare l'amministratore."},
-    )
-
-from fastapi import FastAPI
-from app.routes.admin_setup import router as admin_setup_router
-
-app = FastAPI()
-
-# Include il router
-app.include_router(admin_setup_router)
-
-@app.get("/")
-def root():
-    return {"status": "ok"}
-
-from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from datetime import datetime
 from pydantic import BaseModel
-from typing import List
 from contextlib import asynccontextmanager
 
-# Importazione moduli locali
+# Importazioni locali
 from database import engine, Base, get_db, SessionLocal
 import models
 from utils import get_password_hash
 from dependencies import require_superadmin
+from app.routes.admin_setup import router as admin_setup_router
 
-# --- LIFESPAN: Gestione inizializzazione ---
+# --- 1. LIFESPAN: Gestione inizializzazione ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 1. Creazione tabelle
+    # Creazione tabelle
     Base.metadata.create_all(bind=engine)
     
-    # 2. Inserimento Super Admin se non esiste
+    # Inserimento Super Admin se non esiste
     db = SessionLocal()
-    admin_exists = db.query(models.User).filter(models.User.is_superuser == True).first()
-    
-    if not admin_exists:
-        print("--- Inizializzazione: Creazione Super Admin di default ---")
-        hashed_pw = get_password_hash("PasswordSicura123!")
-        # Assicurati che i campi obbligatori del tuo modello siano qui
-        # Se spazio_id o role_id sono necessari, impostali a valori dummy iniziali
-        nuovo_admin = models.User(
-            email="admin@tuosito.com",
-            password=hashed_pw,
-            is_superuser=True,
-            # Se nel DB questi campi sono necessari, inserisci valori di default
-            # spazio_id=1, role_id=1 
-        )
-        db.add(nuovo_admin)
-        db.commit()
-    
-    db.close()
+    try:
+        admin_exists = db.query(models.User).filter(models.User.is_superuser == True).first()
+        if not admin_exists:
+            print("--- Inizializzazione: Creazione Super Admin di default ---")
+            hashed_pw = get_password_hash("PasswordSicura123!")
+            nuovo_admin = models.User(
+                email="admin@tuosito.com",
+                password=hashed_pw,
+                is_superuser=True
+            )
+            db.add(nuovo_admin)
+            db.commit()
+    finally:
+        db.close()
     yield
-    # Codice di shutdown (opzionale)
 
-# 1. Inizializza l'app con il lifespan
+# --- 2. INIZIALIZZAZIONE APP ---
 app = FastAPI(lifespan=lifespan)
 
-# 2. Configura il middleware
+# --- 3. MIDDLEWARE E ECCEZIONI ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
@@ -82,8 +49,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- SCHEMI DATI ---
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"message": "Errore interno del sistema. Contattare l'amministratore."},
+    )
 
+# --- 4. ROUTER ---
+app.include_router(admin_setup_router)
+
+@app.get("/")
+def root():
+    return {"status": "ok"}
+
+# --- 5. SCHEMI DATI ---
 class LoginRequest(BaseModel):
     username: str
     password: str
@@ -105,14 +85,11 @@ class LicenzaCreate(BaseModel):
     max_aziende_totali: int
     data_scadenza: str 
 
-# --- ROTTE ---
+# --- 6. ROTTE SUPER ADMIN ---
 
 @app.post("/login")
 def login(credentials: LoginRequest, db: Session = Depends(get_db)):
-    # Logica di login
     return {"message": "Implementare logica di autenticazione"}
-
-# --- ROTTE SUPER ADMIN ---
 
 @app.post("/superadmin/spazi", status_code=status.HTTP_201_CREATED)
 def create_spazio(
@@ -164,13 +141,4 @@ def create_licenza(
     return {"status": "success", "id": nuova_licenza.id}
 
 @app.get("/superadmin/stats")
-def get_dashboard_stats(
-    db: Session = Depends(get_db), 
-    admin: models.User = Depends(require_superadmin) 
-):
-    return {
-        "status": "success",
-        "data": {
-            "total_spazi": db.query(models.Spazio).count(),
-        }
-    }
+def get_dashboard_stats
