@@ -2,6 +2,8 @@ from sqlalchemy import Column, Integer, String, Boolean, DateTime, Date, Foreign
 from sqlalchemy.orm import relationship
 from database import Base
 
+alembic revision --autogenerate -m "Aggiunta colonna is_superuser"
+
 class Role(Base):
     __tablename__ = "roles"
     id = Column(Integer, primary_key=True)
