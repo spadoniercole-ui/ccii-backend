@@ -1,28 +1,30 @@
 # init_db.py
-from database import SessionLocal
+from database import SessionLocal, engine
+from models import Base
 from crud import create_user
-from models import User
 
-def init_system():
+# Assicurati che le tabelle esistano
+Base.metadata.create_all(bind=engine)
+
+def init():
     db = SessionLocal()
-    
-    # 1. Controllo esistenza Super Admin
-    admin = db.query(User).filter(User.is_superuser == True).first()
-    
-    if not admin:
-        print("Super Admin non trovato. Creazione in corso...")
+    # Controlla se esiste già un admin per evitare duplicati
+    # (Opzionale, ma caldamente consigliato)
+    try:
+        admin_email = "admin@tuosito.com"
+        # Qui potresti aggiungere un controllo get_user_by_email
         create_user(
-            db, 
-            email="admin@tuodominio.com", 
-            password="una_password_molto_sicura", 
+            db=db, 
+            email=admin_email, 
+            password="tua_password_sicura", 
             role="admin", 
             is_superuser=True
         )
-        print("Super Admin creato con successo.")
-    else:
-        print(f"Super Admin già esistente: {admin.email}")
-    
-    db.close()
+        print(f"Super admin creato con email: {admin_email}")
+    except Exception as e:
+        print(f"Errore: {e}")
+    finally:
+        db.close()
 
 if __name__ == "__main__":
-    init_system()
+    init()
