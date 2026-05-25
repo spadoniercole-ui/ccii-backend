@@ -1,13 +1,15 @@
 # utils.py
-from passlib.context import CryptContext
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Inizializza l'hasher una sola volta
+ph = PasswordHasher()
 
-def get_password_hash(password: str):
-    # Troncamento preventivo per sicurezza
-    if len(password.encode('utf-8')) > 72:
-        password = password[:72]
-    return pwd_context.hash(password)
+def get_password_hash(password: str) -> str:
+    return ph.hash(password)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return ph.verify(hashed_password, plain_password)
+    except VerifyMismatchError:
+        return False
