@@ -1,6 +1,12 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func, Date
 from sqlalchemy.orm import relationship
 from database import Base
+from passlib.context import CryptContext
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def get_password_hash(password):
+    return pwd_context.hash(password)
 
 class Role(Base):
     __tablename__ = "roles"
