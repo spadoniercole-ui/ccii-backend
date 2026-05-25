@@ -1,3 +1,10 @@
+import sys
+import os
+print("Current Working Directory:", os.getcwd())
+print("Python Path:", sys.path)
+# Elenca i file nella cartella corrente per vedere se 'routes' esiste
+print("Files in current directory:", os.listdir('.'))
+
 from fastapi import FastAPI
 from routes.admin_setup import router as admin_setup_router
 
