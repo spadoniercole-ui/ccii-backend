@@ -5,27 +5,6 @@ from datetime import datetime, timezone
 from pydantic import BaseModel
 from typing import List
 
-# dependencies.py
-from fastapi import Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from database import get_db
-import models
-
-# Questa funzione simula il recupero dell'utente. 
-# Quando implementerai il sistema JWT, la modificherai per leggere il token.
-def get_current_user(db: Session = Depends(get_db)):
-    # Per ora, dato che non abbiamo ancora il JWT, questo è un placeholder.
-    # Quando farai il login, dovrai passare l'identità dell'utente.
-    # Per test, puoi modificare questa funzione per leggere un Header specifico.
-    raise HTTPException(status_code=401, detail="Autenticazione mancante (implementa JWT)")
-
-def require_superadmin(current_user: models.User = Depends(get_current_user)):
-    if not current_user.is_superuser:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
-            detail="Accesso negato: solo i Super Admin possono accedere a questa rotta."
-        )
-    return current_user
 # Importazione dei moduli
 from database import engine, Base, get_db
 import models
