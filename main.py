@@ -6,7 +6,7 @@ print("Python Path:", sys.path)
 print("Files in current directory:", os.listdir('.'))
 
 from fastapi import FastAPI
-from routes.admin_setup import router as admin_setup_router
+from app.routes.admin_setup import router as admin_setup_router
 
 app = FastAPI()
 
