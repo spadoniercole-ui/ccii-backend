@@ -1,19 +1,48 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from datetime import datetime, timezone
+from datetime import datetime
 from pydantic import BaseModel
 from typing import List
-from dependencies import require_superadmin
-from utils import verify_password
+from contextlib import asynccontextmanager
 
-# Importazione dei moduli
-from database import engine, Base, get_db
+# Importazione moduli locali
+from database import engine, Base, get_db, SessionLocal
 import models
 from utils import get_password_hash, verify_password
+from dependencies import require_superadmin
 
-# 1. Inizializza l'app
-app = FastAPI()
+# --- LIFESPAN: Gestione inizializzazione ---
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 1. Creazione tabelle
+    Base.metadata.create_all(bind=engine)
+    
+    # 2. Inserimento Super Admin se non esiste
+    db = SessionLocal()
+    admin_exists = db.query(models.User).filter(models.User.is_superuser == True).first()
+    
+    if not admin_exists:
+        print("--- Inizializzazione: Creazione Super Admin di default ---")
+        hashed_pw = get_password_hash("PasswordSicura123!")
+        # Assicurati che i campi obbligatori del tuo modello siano qui
+        # Se spazio_id o role_id sono necessari, impostali a valori dummy iniziali
+        nuovo_admin = models.User(
+            email="admin@tuosito.com",
+            password=hashed_pw,
+            is_superuser=True,
+            # Se nel DB questi campi sono necessari, inserisci valori di default
+            # spazio_id=1, role_id=1 
+        )
+        db.add(nuovo_admin)
+        db.commit()
+    
+    db.close()
+    yield
+    # Codice di shutdown (opzionale)
+
+# 1. Inizializza l'app con il lifespan
+app = FastAPI(lifespan=lifespan)
 
 # 2. Configura il middleware
 app.add_middleware(
@@ -24,9 +53,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-Base.metadata.create_all(bind=engine)
-
-# --- SCHEMI DATI (Per l'inserimento) ---
+# --- SCHEMI DATI ---
 
 class LoginRequest(BaseModel):
     username: str
@@ -34,7 +61,7 @@ class LoginRequest(BaseModel):
 
 class SpazioCreate(BaseModel):
     nome: str
-    data_scadenza_licenza: str # YYYY-MM-DD
+    data_scadenza_licenza: str
 
 class UserCreate(BaseModel):
     email: str
@@ -53,16 +80,16 @@ class LicenzaCreate(BaseModel):
 
 @app.post("/login")
 def login(credentials: LoginRequest, db: Session = Depends(get_db)):
-    # ... (mantieni la tua logica di bypass e login standard)
-    pass
+    # Logica di login
+    return {"message": "Implementare logica di autenticazione"}
 
-# --- ROTTE SUPER ADMIN (Inserimento Dati) ---
+# --- ROTTE SUPER ADMIN ---
 
 @app.post("/superadmin/spazi", status_code=status.HTTP_201_CREATED)
 def create_spazio(
     dati: SpazioCreate, 
     db: Session = Depends(get_db),
-    admin: models.User = Depends(require_superadmin) # <-- Protezione attivata
+    admin: models.User = Depends(require_superadmin)
 ):
     data_scadenza = datetime.strptime(dati.data_scadenza_licenza, "%Y-%m-%d")
     nuovo_spazio = models.Spazio(nome=dati.nome, data_scadenza_licenza=data_scadenza)
@@ -74,13 +101,18 @@ def create_spazio(
 def create_user(
     dati: UserCreate, 
     db: Session = Depends(get_db),
-    admin: models.User = Depends(require_superadmin) # <-- Protezione attivata
+    admin: models.User = Depends(require_superadmin)
 ):
     if db.query(models.User).filter(models.User.email == dati.email).first():
         raise HTTPException(status_code=400, detail="Email già registrata")
     
     hashed = get_password_hash(dati.password)
-    nuovo_utente = models.User(email=dati.email, password=hashed, spazio_id=dati.spazio_id, role_id=dati.role_id)
+    nuovo_utente = models.User(
+        email=dati.email, 
+        password=hashed, 
+        spazio_id=dati.spazio_id, 
+        role_id=dati.role_id
+    )
     db.add(nuovo_utente)
     db.commit()
     return {"status": "success", "user_id": nuovo_utente.id}
@@ -89,7 +121,7 @@ def create_user(
 def create_licenza(
     dati: LicenzaCreate, 
     db: Session = Depends(get_db),
-    admin: models.User = Depends(require_superadmin) # <-- Protezione attivata
+    admin: models.User = Depends(require_superadmin)
 ):
     nuova_licenza = models.Licenza(
         intestatario=dati.intestatario,
@@ -111,6 +143,5 @@ def get_dashboard_stats(
         "status": "success",
         "data": {
             "total_spazi": db.query(models.Spazio).count(),
-            # ... qui puoi aggiungere le altre statistiche
         }
     }
