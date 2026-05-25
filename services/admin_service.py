@@ -3,25 +3,11 @@ from models import Licenza, Spazio
 from fastapi import HTTPException
 from datetime import date
 
-import logging
-logger = logging.getLogger(__name__)
-
-# Dentro create_new_space:
-try:
-    # ... logica ...
-except Exception as e:
-    logger.error(f"Errore critico durante creazione spazio: {str(e)}", exc_info=True)
-    raise e
-
 class AdminService:
     def is_initialized(self, db: Session):
-        # Verifica se esiste almeno un superuser o una configurazione base
-        # Implementa qui la tua logica esistente
+        # Esempio: verifica se esistono utenti
+        # return db.query(models.User).first() is not None
         return False 
-
-    def create_admin(self, db: Session, data):
-        # La tua logica esistente
-        pass
 
     def validate_license_and_create_space(self, db: Session, space_name: str, license_id: int, tipo_spazio_id: int):
         # 1. Validazione Licenza
@@ -32,21 +18,25 @@ class AdminService:
         if licenza.data_scadenza < date.today():
             raise HTTPException(status_code=400, detail="Licenza scaduta")
 
-        # 2. Validazione Limiti (Esempio: max_spazi)
+        # 2. Validazione Limiti
         spazi_esistenti = db.query(Spazio).filter(Spazio.licenza_id == license_id).count()
         if spazi_esistenti >= licenza.max_spazi:
-            raise HTTPException(status_code=400, detail="Limite massimo di spazi raggiunto per questa licenza")
+            raise HTTPException(status_code=400, detail="Limite massimo di spazi raggiunto")
 
         # 3. Creazione Spazio
-        nuovo_spazio = Spazio(
-            nome=space_name,
-            licenza_id=license_id,
-            tipo_spazio_id=tipo_spazio_id,
-            data_scadenza_licenza=licenza.data_scadenza
-        )
-        db.add(nuovo_spazio)
-        db.commit()
-        db.refresh(nuovo_spazio)
-        return nuovo_spazio
+        try:
+            nuovo_spazio = Spazio(
+                nome=space_name,
+                licenza_id=license_id,
+                tipo_spazio_id=tipo_spazio_id,
+                data_scadenza_licenza=licenza.data_scadenza
+            )
+            db.add(nuovo_spazio)
+            db.commit()
+            db.refresh(nuovo_spazio)
+            return nuovo_spazio
+        except Exception as e:
+            db.rollback() # Fondamentale in caso di errore
+            raise HTTPException(status_code=500, detail=f"Errore DB: {str(e)}")
 
 admin_service = AdminService()
