@@ -1,3 +1,15 @@
+from fastapi import FastAPI
+from routes.admin_setup import router as admin_setup_router
+
+app = FastAPI()
+
+# Include il router
+app.include_router(admin_setup_router)
+
+@app.get("/")
+def root():
+    return {"status": "ok"}
+
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
