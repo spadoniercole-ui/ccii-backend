@@ -1,30 +1,14 @@
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
-# Assumo tu abbia una funzione per verificare lo stato nel DB
-from database import get_db 
+# /app/services/admin_service.py
 
-router = APIRouter(prefix="/admin-setup", tags=["admin-setup"])
+class AdminService:
+    def is_initialized(self):
+        # La tua logica qui
+        return True 
 
-class SetupRequest(BaseModel):
-    username: str
-    password: str
-    email: str
+    def create_admin(self, data):
+        # La tua logica qui
+        pass
 
-@router.get("/status")
-def check_setup_status():
-    """Controlla se il sistema è già stato inizializzato."""
-    # Logica pragmatica: torna booleano
-    is_setup = admin_service.is_initialized() 
-    return {"initialized": is_setup}
-
-@router.post("/initialize")
-def initialize_system(data: SetupRequest):
-    """Esegue il setup iniziale."""
-    if admin_service.is_initialized():
-        raise HTTPException(status_code=400, detail="Il sistema è già configurato.")
-    
-    try:
-        admin_service.create_admin(data)
-        return {"message": "Setup completato con successo"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# QUESTA RIGA È OBBLIGATORIA
+# Senza questa, 'admin_service' non esiste come oggetto importabile
+admin_service = AdminService()
