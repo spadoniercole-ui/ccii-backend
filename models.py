@@ -1,8 +1,7 @@
 # models.py
 from sqlalchemy import Column, Integer, String, Boolean, DateTime # <--- Aggiungi DateTime qui
 from database import Base
-from sqlalchemy import Column, Integer, String, Boolean, DateTime # <--- Aggiungi DateTime qui
-from database import Base
+from sqlalchemy.orm import relationship
 
 class User(Base):
     __tablename__ = "users"
