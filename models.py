@@ -1,5 +1,7 @@
-from sqlalchemy import Column, Integer, String, Boolean
-from sqlalchemy.orm import relationship
+# models.py
+from sqlalchemy import Column, Integer, String, Boolean, DateTime # <--- Aggiungi DateTime qui
+from database import Base
+from sqlalchemy import Column, Integer, String, Boolean, DateTime # <--- Aggiungi DateTime qui
 from database import Base
 
 class User(Base):
