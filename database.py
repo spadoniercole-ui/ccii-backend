@@ -1,28 +1,29 @@
+import os
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 
-# Aggiungi 'connect_args' per gestire meglio la negoziazione SSL
+# 1. Recupera l'URL dall'ambiente. 
+# Se non la trova, il programma si ferma subito (fail-fast)
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not SQLALCHEMY_DATABASE_URL:
+    raise ValueError("DATABASE_URL non trovata nelle variabili d'ambiente. Impostala su Railway.")
+
+# 2. Configurazione engine con SSL
+# Aggiungiamo 'sslmode': 'require' perché Railway lo richiede per le connessioni esterne
+connect_args = {"sslmode": "require"}
+
 engine = create_engine(
-    DATABASE_URL,
-    connect_args={
-        "sslmode": "require" 
-    }
+    SQLALCHEMY_DATABASE_URL,
+    connect_args=connect_args
 )
-# URL di connessione al database fornito
-SQLALCHEMY_DATABASE_URL = "postgresql://postgres:SsiUmLbTiHjrgHxAgiNcjDbXvcLxMCNk@postgres.railway.internal:5432/railway"
 
-# Creazione dell'engine
-# echo=True è utile in fase di debug per vedere le query SQL nei log
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
-
-# SessionLocal servirà per ogni richiesta API
+# 3. Setup sessione e base
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Base serve per definire i modelli
 Base = declarative_base()
 
-# Dependency per usare il database in FastAPI
+# 4. Dependency per FastAPI
 def get_db():
     db = SessionLocal()
     try:
