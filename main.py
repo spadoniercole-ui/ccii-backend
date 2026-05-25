@@ -12,7 +12,7 @@ from database import engine, Base, get_db, SessionLocal
 import models
 from utils import get_password_hash
 from dependencies import require_superadmin, get_current_user
-from auth import check_and_migrate, create_access_token
+from app.auth import check_and_migrate, create_access_token
 from app.routes.admin_setup import router as admin_setup_router
 
 # --- 1. LIFESPAN: Gestione inizializzazione ---
