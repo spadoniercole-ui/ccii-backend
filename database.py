@@ -1,7 +1,14 @@
-from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine
 
+# Aggiungi 'connect_args' per gestire meglio la negoziazione SSL
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={
+        "sslmode": "require" 
+    }
+)
 # URL di connessione al database fornito
 SQLALCHEMY_DATABASE_URL = "postgresql://postgres:aQXXZdWkaxudAyYhTGitMsZUQigAhMxi@viaduct.proxy.rlwy.net:48125/railway"
 
