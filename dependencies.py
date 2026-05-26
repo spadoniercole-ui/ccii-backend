@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from database import get_db
-import models
+from .database import get_db
+from . import models
 
 # dependencies.py
 from fastapi import Depends, HTTPException, status
