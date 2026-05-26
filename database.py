@@ -13,13 +13,11 @@ SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 if not SQLALCHEMY_DATABASE_URL:
     raise ValueError("DATABASE_URL non trovata nelle variabili d'ambiente.")
 
-# CORREZIONE PRAGMATICA: SQLAlchemy > 1.4 rifiuta 'postgres://' e vuole tassativamente 'postgresql://'
-# Railway genera la stringa vecchia, quindi la correggiamo a runtime.
+# CORREZIONE AUTOMATICA PER RAILWAY: convertiamo postgres:// in postgresql://
 if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
     SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 # 2. Setup Database
-# Manteniamo la configurazione SSL dinamica: la applichiamo solo se siamo su Postgres
 connect_args = {}
 if "postgresql" in SQLALCHEMY_DATABASE_URL:
     connect_args = {"sslmode": "require"}
