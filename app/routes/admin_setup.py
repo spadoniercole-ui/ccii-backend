@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from database import get_db # Assicurati di importare la tua sessione
+from ..database import get_db # Assicurati di importare la tua sessione
 from services.admin_service import admin_service 
-from models import User
+from ..models import User
 
 router = APIRouter(prefix="/admin-setup", tags=["admin-setup"])
 
