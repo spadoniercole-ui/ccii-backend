@@ -1,13 +1,15 @@
+# app/routes/admin_setup.py
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-# Saliamo di due livelli (da routes/ e da app/) per raggiungere la radice backend/
-from ...database import get_db 
-from ...models import User
-from ...services.admin_service import admin_service 
+# Importazioni assolute dirette dalla radice globale
+from database import get_db 
+from models import User
+from admin_service import AdminService # Importazione corretta della classe
 
 router = APIRouter(prefix="/admin-setup", tags=["admin-setup"])
+admin_service = AdminService() # Inizializzazione locale dell'istanza se non esportata come oggetto
 
 class SpaceCreateRequest(BaseModel):
     nome: str
