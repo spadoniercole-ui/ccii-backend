@@ -1,13 +1,13 @@
+import sys
+import os
+
+# Forza Python a vedere la cartella corrente per trovare database.py e models.py
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from .database import get_db
 from . import models
-
-# dependencies.py
-from fastapi import Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from .database import get_db
-import models
 
 # Questa funzione simula il recupero dell'utente. 
 # Quando implementerai il sistema JWT, la modificherai per leggere il token.
