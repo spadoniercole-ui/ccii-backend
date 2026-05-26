@@ -1,4 +1,8 @@
+from dotenv import load_dotenv
 import os
+
+load_dotenv() # Carica le variabili dal file .env
+
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
