@@ -8,13 +8,26 @@ from pydantic import BaseModel
 from contextlib import asynccontextmanager
 
 # Importazioni locali
-# --- IMPORTAZIONI LOCALI CORRETTE (STRUTTURA IBRIDA) ---
+from fastapi import FastAPI, Request, Depends, HTTPException, status
+from fastapi.responses import JSONResponse
+from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+from datetime import datetime
+from pydantic import BaseModel
+from contextlib import asynccontextmanager
+
+# Importazioni locali allineate alla radice di Railway
 from database import engine, Base, get_db, SessionLocal
-import models  # Rimane così perché models.py è di fianco a main.py
+import models
 from utils import get_password_hash
 from dependencies import require_superadmin, get_current_user
 
-# Questi due si trovano dentro la sotto-cartella 'app', quindi serve il prefisso:
+# Sotto-cartella 'app'
+from app.auth import check_and_migrate, create_access_token
+from app.routes.admin_setup import router as admin_setup_router
+
+# ... Tutto il resto del tuo codice di main.py rimane identico ...
 from app.auth import check_and_migrate, create_access_token
 from app.routes.admin_setup import router as admin_setup_router
 from dependencies import require_superadmin, get_current_user
