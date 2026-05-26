@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.13.0
@@ -52,3 +53,13 @@ starlette==1.1.0
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 uvicorn==0.48.0
+=======
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+python-dotenv
+python-jose[cryptography]
+passlib[bcrypt]
+requests
+>>>>>>> cc839919de6bac935e24b823b76101bdd66068b8
