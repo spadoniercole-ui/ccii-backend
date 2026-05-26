@@ -10,6 +10,15 @@ from contextlib import asynccontextmanager
 # Importazioni locali
 from database import engine, Base, get_db, SessionLocal
 import models
+
+# Importazioni locali corrette
+from database import engine, Base, get_db, SessionLocal
+from app import models  # <--- Corretto il percorso per Railway
+from utils import get_password_hash
+from dependencies import require_superadmin, get_current_user
+from app.auth import check_and_migrate, create_access_token
+from app.routes.admin_setup import router as admin_setup_router
+
 from utils import get_password_hash
 from dependencies import require_superadmin, get_current_user
 from app.auth import check_and_migrate, create_access_token
