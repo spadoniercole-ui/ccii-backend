@@ -1,3 +1,8 @@
+# WORKAROUND REALE PER BUG PYTHON-JOSE / BCRYPT
+import bcrypt
+if not hasattr(bcrypt, "__about__"):
+    bcrypt.__about__ = type("About", (object,), {"__version__": bcrypt.__version__})
+
 # utils.py
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
