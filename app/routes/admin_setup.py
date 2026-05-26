@@ -3,13 +3,13 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-# Importazioni assolute dirette dalla radice globale
+# Importazioni assolute fisse
 from database import get_db 
 from models import User
-from admin_service import AdminService # Importazione corretta della classe
+from admin_service import AdminService
 
 router = APIRouter(prefix="/admin-setup", tags=["admin-setup"])
-admin_service = AdminService() # Inizializzazione locale dell'istanza se non esportata come oggetto
+admin_service = AdminService()
 
 class SpaceCreateRequest(BaseModel):
     nome: str
