@@ -6,7 +6,7 @@ import models
 # dependencies.py
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from database import get_db
+from .database import get_db
 import models
 
 # Questa funzione simula il recupero dell'utente. 
