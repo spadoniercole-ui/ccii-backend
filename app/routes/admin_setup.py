@@ -1,9 +1,14 @@
 # app/routes/admin_setup.py
+import sys
+import os
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-# Importazioni assolute fisse
+# Questo aggiunge la radice del progetto (backend/) ai percorsi di ricerca di Python
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+
+# Ora Python trova perfettamente i file nella radice
 from database import get_db 
 from models import User
 from admin_service import AdminService
