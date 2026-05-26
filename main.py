@@ -126,12 +126,15 @@ class LicenzaCreate(BaseModel):
     data_scadenza: str 
 
 class SuperAdminWizardRequest(BaseModel):
-    # Step 1: Dati Licenza
-    licenza_intestatario: str
-    licenza_max_spazi: int
-    licenza_max_utenti_totali: int
-    licenza_max_aziende_totali: int
-    licenza_data_scadenza: str  # Formato YYYY-MM-DD
+    # Se valorizzato, indica che la licenza è già stata creata (trattativa commerciale)
+    licenza_id: Optional[int] = None
+
+    # Step 1: Dati Licenza (Opzionali se licenza_id è presente)
+    licenza_intestatario: Optional[str] = None
+    licenza_max_spazi: Optional[int] = None
+    licenza_max_utenti_totali: Optional[int] = None
+    licenza_max_aziende_totali: Optional[int] = None
+    licenza_data_scadenza: Optional[str] = None  # Formato YYYY-MM-DD
     
     # Step 2: Dati Primo Spazio (Tenant)
     spazio_nome: str
@@ -142,7 +145,7 @@ class SuperAdminWizardRequest(BaseModel):
     admin_password: str
 
 
-# --- ROTTA DI AUTENTICAZIONE (LOGIN) ---
+# --- ROTTA DI AUTENTICAZIONE (LOGIN CON RILEVAMENTO PRIMO ACCESSO) ---
 @app.post("/token")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == form_data.username).first()
@@ -159,54 +162,80 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    # --- LOGICA REALE PRIMO ACCESSO SUPER ADMIN ---
+    # Controlliamo quante licenze reali sono state registrate a sistema
+    licenze_esistenti = db.query(models.Licenza).count()
+    is_superuser_flag = getattr(user, 'is_superuser', False)
+    
+    # È il primo accesso assoluto solo se chi entra è un superadmin e non ci sono ancora licenze a DB
+    is_first_access = (licenze_esistenti == 0) and is_superuser_flag
+    
     access_token = create_access_token(data={"sub": user.email})
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer",
+        "is_superuser": is_superuser_flag,
+        "is_first_access": is_first_access
+    }
 
 
-# --- ROTTE SUPER ADMIN & WIZARD ---
+# --- ROTTE SUPER ADMIN & WIZARD BIFORCATO ---
 
 @app.post("/superadmin/wizard-setup", status_code=status.HTTP_201_CREATED)
 def superadmin_wizard_setup(dati: SuperAdminWizardRequest, db: Session = Depends(get_db)):
     """
     Wizard Atomico e Transazionale per il Super Admin.
-    Esegue in sequenza: Creazione Licenza -> Creazione Spazio -> Creazione Utente Admin del Tenant.
-    In caso di errore su qualsiasi livello, effettua il rollback automatico pulendo il DB.
+    Gestisce due percorsi:
+    1. Se viene fornito licenza_id, aggancia il flusso a una licenza commerciale pre-esistente.
+    2. Se licenza_id manca, crea prima una nuova licenza e poi procede con Spazio e Utente Admin.
     """
-    # 1. Validazione preliminare formato date
-    try:
-        scadenza_licenza = datetime.strptime(dati.licenza_data_scadenza, "%Y-%m-%d").date()
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Formato data licenza non valido. Usa YYYY-MM-DD")
-
-    # 2. Verifica preventiva unicità email utente
+    # Verifica preventiva unicità email utente admin
     email_esistente = db.query(models.User).filter(models.User.email == dati.admin_email).first()
     if email_esistente:
         raise HTTPException(status_code=400, detail=f"L'email {dati.admin_email} è già registrata.")
 
     try:
-        # STEP 1: Creazione della Licenza Madre
-        nuova_licenza = models.Licenza(
-            intestatario=dati.licenza_intestatario,
-            max_spazi=dati.licenza_max_spazi,
-            max_utenti_totali=dati.licenza_max_utenti_totali,
-            max_aziende_totali=dati.licenza_max_aziende_totali,
-            data_scadenza=scadenza_licenza
-        )
-        db.add(nuova_licenza)
-        db.flush()  # Genera l'ID temporaneo della licenza senza consolidare
+        # PERCORSO A: Utilizzo di una licenza già esistente (Trattativa commerciale conclusa)
+        if dati.licenza_id is not None:
+            licenza_attiva = db.query(models.Licenza).filter(models.Licenza.id == dati.licenza_id).first()
+            if not licenza_attiva:
+                raise HTTPException(status_code=404, detail=f"Licenza commerciale con ID {dati.licenza_id} non trovata.")
+            scadenza_licenza = licenza_attiva.data_scadenza
+            id_licenza_corrente = licenza_attiva.id
 
-        # STEP 2: Creazione del Primo Spazio Tenant collegato alla licenza
+        # PERCORSO B: Creazione immediata della licenza all'interno del wizard
+        else:
+            if not dati.licenza_data_scadenza or not dati.licenza_intestatario:
+                raise HTTPException(status_code=400, detail="Dati licenza incompleti. Fornire una licenza_id o i dati per una nuova licenza.")
+            
+            try:
+                scadenza_licenza = datetime.strptime(dati.licenza_data_scadenza, "%Y-%m-%d").date()
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Formato data licenza non valido. Usa YYYY-MM-DD")
+
+            nuova_licenza = models.Licenza(
+                intestatario=dati.licenza_intestatario,
+                max_spazi=dati.licenza_max_spazi if dati.licenza_max_spazi is not None else 1,
+                max_utenti_totali=dati.licenza_max_utenti_totali if dati.licenza_max_utenti_totali is not None else 5,
+                max_aziende_totali=dati.licenza_max_aziende_totali if dati.licenza_max_aziende_totali is not None else 1,
+                data_scadenza=scadenza_licenza
+            )
+            db.add(nuova_licenza)
+            db.flush()  # Genera l'ID senza consolidare definitivamente
+            id_licenza_corrente = nuova_licenza.id
+
+        # STEP 2: Creazione del Primo Spazio Tenant collegato alla licenza identificata
         nuovo_spazio = models.Spazio()
         nuovo_spazio.nome = dati.spazio_nome
         nuovo_spazio.data_scadenza_licenza = scadenza_licenza
         
         if hasattr(models.Spazio, 'licenza_id'):
-            nuovo_spazio.licenza_id = nuova_licenza.id
+            nuovo_spazio.licenza_id = id_licenza_corrente
         if hasattr(models.Spazio, 'tipo_spazio_id'):
             nuovo_spazio.tipo_spazio_id = dati.spazio_tipo_id
             
         db.add(nuovo_spazio)
-        db.flush()  # Genera l'ID temporaneo dello spazio per l'utente
+        db.flush()  # Genera l'ID dello spazio per legare l'utente
 
         # STEP 3: Creazione dell'Utente Amministratore dello Spazio
         hashed_pw = get_password_hash(dati.admin_password)
@@ -230,22 +259,25 @@ def superadmin_wizard_setup(dati: SuperAdminWizardRequest, db: Session = Depends
 
         db.add(nuovo_admin)
         
-        # Consolidamento transazione se tutti i passaggi sono andati a buon fine
+        # Consolidamento transazione atomica
         db.commit()
         
         return {
             "status": "success",
-            "message": "Configurazione iniziale completata con successo tramite Wizard.",
+            "message": "Configurazione completata con successo tramite Wizard transazionale.",
             "data": {
-                "licenza_id": nuova_licenza.id,
+                "licenza_id": id_licenza_corrente,
                 "spazio_id": nuovo_spazio.id,
                 "admin_id": nuovo_admin.id,
                 "admin_email": nuovo_admin.email
             }
         }
 
+    except HTTPException as he:
+        db.rollback()
+        raise he
     except Exception as e:
-        db.rollback()  # Annulla l'intera catena di inserimenti in caso di anomalie
+        db.rollback()  # Pulisce tutto se qualcosa fallisce nel DB
         raise HTTPException(
             status_code=500, 
             detail=f"Errore durante l'esecuzione del wizard (Transazione interrotta): {str(e)}"
@@ -293,7 +325,7 @@ def create_utente(dati: UserCreate, db: Session = Depends(get_db)):
     db.add(nuovo_utente)
     db.commit()
     db.refresh(nuovo_utente)
-    return {"id": nuovo_utente.id, "email": nuovo_utente.email}
+    return {"id": nuevo_utente.id, "email": nuovo_utente.email}
 
 @app.post("/superadmin/licenze", status_code=status.HTTP_201_CREATED)
 def create_licenza(dati: LicenzaCreate, db: Session = Depends(get_db)):
