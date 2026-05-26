@@ -3,12 +3,12 @@ import bcrypt
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import jwt
+from sqlalchemy.orm import Session
 
-# Importazioni assolute dirette dalla radice
+# Importazioni assolute e dirette dalla radice globale
 from utils import get_password_hash, verify_password 
 from database import get_db
 from models import User
-from sqlalchemy.orm import Session
 
 # Configurazione JWT
 SECRET_KEY = "CAMBIA_QUESTA_CHIAVE_SEGRETISSIMA_IN_PRODUZIONE"
