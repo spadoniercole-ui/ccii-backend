@@ -5,6 +5,9 @@ from typing import Optional
 from jose import jwt
 from utils import get_password_hash, verify_password 
 from db.crud import update_user_password_in_db
+# Corretto:
+from database import get_db
+from models import User
 
 # Configurazione JWT
 SECRET_KEY = "CAMBIA_QUESTA_CHIAVE_SEGRETISSIMA_IN_PRODUZIONE" # Usa una variabile d'ambiente!
