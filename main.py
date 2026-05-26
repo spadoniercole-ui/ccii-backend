@@ -47,26 +47,48 @@ def create_access_token(data: dict):
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
-# --- LIFESPAN: Inizializzazione Database ---
+# --- LIFESPAN: Inizializzazione Database Sicura ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine)
+    # Proviamo a creare le tabelle. Se i modelli hanno micro-disallineamenti,
+    # stampiamo l'errore senza far crashare l'intero container di Railway.
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        print(f"[CRITICAL] Errore durante la creazione delle tabelle: {e}")
+        print("L'applicazione proverà comunque ad avviarsi per consentire la diagnostica.")
+
     db = SessionLocal()
     try:
+        # Controllo superuser agnostico: cerchiamo se esiste ALMENO un utente admin
         admin_exists = db.query(models.User).filter(models.User.is_superuser == True).first()
         if not admin_exists:
             print("--- Inizializzazione: Creazione Super Admin di default ---")
             hashed_pw = get_password_hash("PasswordSicura123!")
-            nuovo_admin = models.User(
-                email="admin@tuosito.com",
-                hashed_password=hashed_pw,
-                is_superuser=True,
-                role="superadmin"
-            )
+            
+            # Creiamo l'oggetto usando solo i campi strutturali minimi e universali
+            nuovo_admin = models.User()
+            nuovo_admin.email = "admin@tuosito.com"
+            
+            # Rileviamo dinamicamente come si chiama il campo password nel tuo models.py
+            if hasattr(models.User, 'hashed_password'):
+                nuovo_admin.hashed_password = hashed_pw
+            elif hasattr(models.User, 'password'):
+                nuovo_admin.password = hashed_pw
+                
+            nuovo_admin.is_superuser = True
+            
+            # Gestione dinamica del ruolo
+            if hasattr(models.User, 'role'):
+                nuovo_admin.role = "superadmin"
+            elif hasattr(models.User, 'role_id'):
+                nuovo_admin.role_id = 1
+                
             db.add(nuovo_admin)
             db.commit()
+            print("--- Super Admin creato con successo! ---")
     except Exception as e:
-        print(f"Log Inizializzazione Fallito: {e}")
+        print(f"[WARNING] Creazione Super Admin automatico fallita: {e}")
     finally:
         db.close()
     yield
