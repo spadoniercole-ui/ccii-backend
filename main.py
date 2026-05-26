@@ -50,8 +50,7 @@ def create_access_token(data: dict):
 # --- LIFESPAN: Inizializzazione Database Sicura ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Proviamo a creare le tabelle. Se i modelli hanno micro-disallineamenti,
-    # stampiamo l'errore senza far crashare l'intero container di Railway.
+    # Esegue la creazione tabelle isolando errori di compilazione/dialetto del DB
     try:
         Base.metadata.create_all(bind=engine)
     except Exception as e:
@@ -60,17 +59,15 @@ async def lifespan(app: FastAPI):
 
     db = SessionLocal()
     try:
-        # Controllo superuser agnostico: cerchiamo se esiste ALMENO un utente admin
         admin_exists = db.query(models.User).filter(models.User.is_superuser == True).first()
         if not admin_exists:
             print("--- Inizializzazione: Creazione Super Admin di default ---")
             hashed_pw = get_password_hash("PasswordSicura123!")
             
-            # Creiamo l'oggetto usando solo i campi strutturali minimi e universali
             nuovo_admin = models.User()
             nuovo_admin.email = "admin@tuosito.com"
             
-            # Rileviamo dinamicamente come si chiama il campo password nel tuo models.py
+            # Controllo dinamico attributi password
             if hasattr(models.User, 'hashed_password'):
                 nuovo_admin.hashed_password = hashed_pw
             elif hasattr(models.User, 'password'):
@@ -78,7 +75,7 @@ async def lifespan(app: FastAPI):
                 
             nuovo_admin.is_superuser = True
             
-            # Gestione dinamica del ruolo
+            # Controllo dinamico attributi ruolo
             if hasattr(models.User, 'role'):
                 nuovo_admin.role = "superadmin"
             elif hasattr(models.User, 'role_id'):
@@ -110,7 +107,7 @@ app.add_middleware(
 )
 
 
-# --- SCHEMI DATI ---
+# --- SCHEMI DATI COMPLETI ---
 class SpazioCreate(BaseModel):
     nome: str
     data_scadenza_licenza: str
@@ -128,10 +125,21 @@ class LicenzaCreate(BaseModel):
     max_aziende_totali: int
     data_scadenza: str 
 
-class SpaceCreateRequest(BaseModel):
-    nome: str
-    licenza_id: int
-    tipo_spazio_id: int
+class SuperAdminWizardRequest(BaseModel):
+    # Step 1: Dati Licenza
+    licenza_intestatario: str
+    licenza_max_spazi: int
+    licenza_max_utenti_totali: int
+    licenza_max_aziende_totali: int
+    licenza_data_scadenza: str  # Formato YYYY-MM-DD
+    
+    # Step 2: Dati Primo Spazio (Tenant)
+    spazio_nome: str
+    spazio_tipo_id: int
+    
+    # Step 3: Dati Utente Admin del Tenant
+    admin_email: str
+    admin_password: str
 
 
 # --- ROTTA DI AUTENTICAZIONE (LOGIN) ---
@@ -141,7 +149,10 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     if not user:
         raise HTTPException(status_code=401, detail="Email o password errati")
     
-    if not check_and_migrate(user.id, form_data.password, user.hashed_password, db):
+    # Rilevamento dinamico campo password per il login
+    db_password = user.hashed_password if hasattr(user, 'hashed_password') else user.password
+    
+    if not check_and_migrate(user.id, form_data.password, db_password, db):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email o password errati",
@@ -152,30 +163,95 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-# --- ROTTE EX-ADMIN_SETUP.PY (INTEGRATE) ---
-@app.get("/admin-setup/status")
-def check_setup_status(db: Session = Depends(get_db)):
-    try:
-        from admin_service import AdminService
-        return {"initialized": AdminService().is_initialized(db)}
-    except Exception as e:
-        return {"initialized": False, "error": str(e)}
+# --- ROTTE SUPER ADMIN & WIZARD ---
 
-@app.post("/admin-setup/create-space")
-def create_space_setup(data: SpaceCreateRequest, db: Session = Depends(get_db)):
+@app.post("/superadmin/wizard-setup", status_code=status.HTTP_201_CREATED)
+def superadmin_wizard_setup(dati: SuperAdminWizardRequest, db: Session = Depends(get_db)):
+    """
+    Wizard Atomico e Transazionale per il Super Admin.
+    Esegue in sequenza: Creazione Licenza -> Creazione Spazio -> Creazione Utente Admin del Tenant.
+    In caso di errore su qualsiasi livello, effettua il rollback automatico pulendo il DB.
+    """
+    # 1. Validazione preliminare formato date
     try:
-        from admin_service import AdminService
-        spazio = AdminService().validate_license_and_create_space(
-            db, data.nome, data.licenza_id, data.tipo_spazio_id
+        scadenza_licenza = datetime.strptime(dati.licenza_data_scadenza, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Formato data licenza non valido. Usa YYYY-MM-DD")
+
+    # 2. Verifica preventiva unicità email utente
+    email_esistente = db.query(models.User).filter(models.User.email == dati.admin_email).first()
+    if email_esistente:
+        raise HTTPException(status_code=400, detail=f"L'email {dati.admin_email} è già registrata.")
+
+    try:
+        # STEP 1: Creazione della Licenza Madre
+        nuova_licenza = models.Licenza(
+            intestatario=dati.licenza_intestatario,
+            max_spazi=dati.licenza_max_spazi,
+            max_utenti_totali=dati.licenza_max_utenti_totali,
+            max_aziende_totali=dati.licenza_max_aziende_totali,
+            data_scadenza=scadenza_licenza
         )
-        return {"message": "Spazio creato", "id": spazio.id}
-    except HTTPException as he:
-        raise he
+        db.add(nuova_licenza)
+        db.flush()  # Genera l'ID temporaneo della licenza senza consolidare
+
+        # STEP 2: Creazione del Primo Spazio Tenant collegato alla licenza
+        nuovo_spazio = models.Spazio()
+        nuovo_spazio.nome = dati.spazio_nome
+        nuovo_spazio.data_scadenza_licenza = scadenza_licenza
+        
+        if hasattr(models.Spazio, 'licenza_id'):
+            nuovo_spazio.licenza_id = nuova_licenza.id
+        if hasattr(models.Spazio, 'tipo_spazio_id'):
+            nuovo_spazio.tipo_spazio_id = dati.spazio_tipo_id
+            
+        db.add(nuovo_spazio)
+        db.flush()  # Genera l'ID temporaneo dello spazio per l'utente
+
+        # STEP 3: Creazione dell'Utente Amministratore dello Spazio
+        hashed_pw = get_password_hash(dati.admin_password)
+        nuovo_admin = models.User()
+        nuovo_admin.email = dati.admin_email
+        
+        if hasattr(models.User, 'hashed_password'):
+            nuovo_admin.hashed_password = hashed_pw
+        elif hasattr(models.User, 'password'):
+            nuovo_admin.password = hashed_pw
+
+        nuovo_admin.is_superuser = False
+        
+        if hasattr(models.User, 'role'):
+            nuovo_admin.role = "admin"
+        elif hasattr(models.User, 'role_id'):
+            nuovo_admin.role_id = 2  # Default id per ruolo Tenant Admin
+            
+        if hasattr(models.User, 'spazio_id'):
+            nuovo_admin.spazio_id = nuovo_spazio.id
+
+        db.add(nuovo_admin)
+        
+        # Consolidamento transazione se tutti i passaggi sono andati a buon fine
+        db.commit()
+        
+        return {
+            "status": "success",
+            "message": "Configurazione iniziale completata con successo tramite Wizard.",
+            "data": {
+                "licenza_id": nuova_licenza.id,
+                "spazio_id": nuovo_spazio.id,
+                "admin_id": nuovo_admin.id,
+                "admin_email": nuovo_admin.email
+            }
+        }
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        db.rollback()  # Annulla l'intera catena di inserimenti in caso di anomalie
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Errore durante l'esecuzione del wizard (Transazione interrotta): {str(e)}"
+        )
 
 
-# --- ROTTE SUPER ADMIN ---
 @app.post("/superadmin/spazi", status_code=status.HTTP_201_CREATED)
 def create_spazio(dati: SpazioCreate, db: Session = Depends(get_db)):
     try:
@@ -202,10 +278,18 @@ def create_utente(dati: UserCreate, db: Session = Depends(get_db)):
     hashed_pw = get_password_hash(dati.password)
     nuovo_utente = models.User(
         email=dati.email,
-        hashed_password=hashed_pw,
-        spazio_id=dati.spazio_id,
-        role=str(dati.role_id)
+        spazio_id=dati.spazio_id
     )
+    if hasattr(models.User, 'hashed_password'):
+        nuovo_utente.hashed_password = hashed_pw
+    elif hasattr(models.User, 'password'):
+        nuovo_utente.password = hashed_pw
+        
+    if hasattr(models.User, 'role'):
+        nuovo_utente.role = str(dati.role_id)
+    elif hasattr(models.User, 'role_id'):
+        nuovo_utente.role_id = dati.role_id
+
     db.add(nuovo_utente)
     db.commit()
     db.refresh(nuovo_utente)
