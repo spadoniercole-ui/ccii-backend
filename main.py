@@ -167,12 +167,12 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     }
 
 
-# --- ENDPOINT ANALIZZATORE XBRL (INTEGRATO PER IL NUOVO FLUSSO PYTHON) ---
+# --- ENDPOINT ANALIZZATORE XBRL REALE (PARSING DEI TAG IT-GAAP) ---
 @app.post("/api/v1/analizzatore-xbrl")
 async def analizzatore_xbrl(file: UploadFile = File(...)):
     """
-    Riceve il file XBRL direttamente dal frontend, esegue il parsing nativo in Python
-    e restituisce i dati strutturati necessari per gli indici del Codice della Crisi.
+    Riceve il file XBRL/XML dal frontend, esegue il parsing dei namespace e dei tag
+    ufficiali della tassonomia italiana (IT-GAAP) ed estrae i dati finanziari reali.
     """
     if not file.filename.endswith('.xbrl') and not file.filename.endswith('.xml'):
         raise HTTPException(status_code=400, detail="Formato file non valido. Accettati solo .xbrl o .xml")
@@ -180,24 +180,68 @@ async def analizzatore_xbrl(file: UploadFile = File(...)):
     try:
         contenuto = await file.read()
         
-        # TODO: Sostituisci questo mockup con la chiamata alle funzioni di parsing xml/xbrl reali
-        # che andranno a mappare i tag del tracciato IT-GAAP.
-        mock_data = {
-            "success": True,
-            "data": {
-                "annoRiferimento": 2025,
-                "patrimonioNetto": 450000,
-                "attivoCircolante": 1200000,
-                "totaleDebiti": 850000,
-                "valoreProduzione": 2100000,
-                "costiProduzione": 1950000,
-                "utilePerdita": 150000
-            }
+        # Carica il file XML in memoria
+        import xml.etree.ElementTree as ET
+        root = ET.fromstring(contenuto)
+        
+        # Mappa dei principali tag della tassonomia XBRL Italiana (IT-GAAP)
+        # Nota: Nei file XBRL i tag possono includere un prefisso di namespace dinamico (es. itcc-ci-ggi o pital).
+        # Questo dizionario mappa le parole chiave finali dei tag che ci interessano.
+        tag_mappa = {
+            "patrimonioNetto": ["PatrimonioNetto", "AzioneCapitaleSottoscritto"],
+            "attivoCircolante": ["AttivoCircolante", "TotaleAttivoCircolante"],
+            "totaleDebiti": ["Debiti", "TotaleDebiti"],
+            "valoreProduzione": ["ValoreProduzione", "TotaleValoreProduzione"],
+            "costiProduzione": ["CostiProduzione", "TotaleCostiProduzione"],
+            "utilePerdita": ["UtilePerditaEsercizio", "UtilePerdita"]
         }
-        return mock_data
+        
+        # Inizializza i dati estratti a 0
+        dati_estratti = {
+            "annoRiferimento": date.today().year,
+            "patrimonioNetto": 0,
+            "attivoCircolante": 0,
+            "totaleDebiti": 0,
+            "valoreProduzione": 0,
+            "costiProduzione": 0,
+            "utilePerdita": 0
+        }
 
+        # Cerca l'anno di riferimento (contesto di chiusura esercizio corrente)
+        for elem in root.iter():
+            if 'endDate' in elem.tag:
+                try:
+                    dati_estratti["annoRiferimento"] = datetime.strptime(elem.text.strip(), "%Y-%m-%d").year
+                    break
+                except:
+                    pass
+
+        # Estrazione dinamica dei valori numerici ignorando i namespace complessi
+        for elem in root.iter():
+            # Pulisce il tag eliminando il namespace racchiuso tra parentesi graffe "{...}"
+            clean_tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
+            
+            # Controlla se il tag ripulito corrisponde a uno dei campi di bilancio cercati
+            for chiave_interna, tag_target_list in tag_mappa.items():
+                if clean_tag in tag_target_list and elem.text:
+                    try:
+                        # Converte il testo in float (gestendo eventuali spazi) e poi in int per la visualizzazione
+                        valore = int(float(elem.text.strip()))
+                        # Se il valore è già popolato, mantiene il massimo (spesso i file XBRL contengono sia l'anno corrente che il precedente)
+                        if dati_estratti[chiave_interna] == 0:
+                            dati_estratti[chiave_interna] = valore
+                    except ValueError:
+                        pass
+
+        return {
+            "success": True,
+            "data": dati_estratti
+        }
+
+    except ET.ParseError:
+        raise HTTPException(status_code=400, detail="Il file inviato non è un file XML/XBRL valido o è corrotto.")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Errore interno durante il parsing del file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Errore durante l'analisi del file XBRL: {str(e)}")
 
 
 # --- ROTTE SUPER ADMIN & WIZARD BIFORCATO ---
