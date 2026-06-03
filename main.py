@@ -181,23 +181,14 @@ class LicenzaCreate(BaseModel):
     data_scadenza: str 
 
 class SuperAdminWizardRequest(BaseModel):
-    # Se valorizzato, indica che la licenza è già stata creata (trattativa commerciale)
-    licenza_id: Optional[int] = None
-
-class SuperAdminWizardRequest(BaseModel):
     username: str
     password: str
     intestatario_licenza: str
     max_spazi: int
-    # ... altri campi veri della tua richiesta ...
-    # CANCELLA la riga isolata che dice solo "admin_"
-    
-    # Step 1: Dati Licenza (Opzionali se licenza_id è presente)
-    licenza_intestatario: Optional[str] = None
-    licenza_max_spazi: Optional[int] = None
-    licenza_max_utenti_totali: Optional[int] = None
-    licenza_max_aziende_totali: Optional[int] = None
-    licenza_data_scadenza: Optional[str] = None  # Formato YYYY-MM-DD
+    max_utenti_totali: int
+    max_aziende_totali: int
+    data_scadenza: str  # YYYY-MM-DD
+    # RIGA "admin_" ELIMINATA COMPLETAMENTE QUI
     
     # Step 2: Dati Primo Spazio (Tenant)
     spazio_nome: str
