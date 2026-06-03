@@ -3,15 +3,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# 1. Correggi: leggiamo il VALORE della variabile d'ambiente chiamata "DATABASE_URL"
-# Se non è impostata, usiamo il tuo URL come fallback (ma attenzione a non esporlo in chiaro!)
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:qBOGUzEOJvncBDqempQDLQcrhuLCXCLe@postgres.railway.internal:5432/railway")
+# Leggi l'URL dalla variabile d'ambiente di Railway
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# 2. Correzione del prefisso per SQLAlchemy
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-
-engine = create_engine(DATABASE_URL)
+# Se sei in locale, puoi lasciare un fallback, ma su Railway DEVE usare la variabile
+engine = create_engine(DATABASE_URL) 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
