@@ -20,6 +20,27 @@ class Spazio(Base):
     id = Column(Integer, primary_key=True)
     nome = Column(String, nullable=False)
     data_scadenza_licenza = Column(DateTime, nullable=True)
+
+class XbrlStaging(Base):
+    __tablename__ = "xbrl_staging"
+    id = Column(Integer, primary_key=True)
+    filename = Column(String)
+    raw_content = Column(LargeBinary)
+    status = Column(String) # 'STAGING', 'VALIDATO', 'RICLASSIFICATO'
+    data_caricamento = Column(DateTime)
+
+class MappaturaVariabili(Base):
+    __tablename__ = "mappatura_variabili"
+    id = Column(Integer, primary_key=True)
+    tag_xbrl_grezzo = Column(String)
+    tag_sistema_target = Column(String)
+
+class BilancioRiclassificato(Base):
+    __tablename__ = "bilancio_riclassificato"
+    id = Column(Integer, primary_key=True)
+    staging_id = Column(Integer) # FK verso XbrlStaging
+    valore = Column(Float)
+    variabile_sistema = Column(String)
     
     # Chiavi esterne (spostate qui da Licenza)
     licenza_id = Column(Integer, ForeignKey("licenze.id"), nullable=True)
