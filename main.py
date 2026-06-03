@@ -1,17 +1,3 @@
-import logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-@app.post("/api/v1/analizzatore-xbrl")
-async def ricevi_xbrl(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    # LOG PER DEBUG
-    logger.info(f"Ricevuto file: {file.filename}, Content-Type: {file.content_type}")
-    
-    if not file.filename.endswith(('.xbrl', '.xml')):
-        raise HTTPException(status_code=400, detail="Formato file non supportato.")
-    
-    # ... resto del codice ...
-
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
