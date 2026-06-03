@@ -4,7 +4,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 # Railway fornisce la stringa completa in DATABASE_URL
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
+SQLALCHEMY_DATABASE_URL = os.getenv("postgresql://postgres:qBOGUzEOJvncBDqempQDLQcrhuLCXCLe@postgres.railway.internal:5432/railwaypostgresql://postgres:qBOGUzEOJvncBDqempQDLQcrhuLCXCLe@postgres.railway.internal:5432/railway")
 
 # Se DATABASE_URL inizia con 'postgres://', SQLAlchemy potrebbe richiedere 'postgresql://'
 if SQLALCHEMY_DATABASE_URL and SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
