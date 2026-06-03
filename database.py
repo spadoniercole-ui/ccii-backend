@@ -3,11 +3,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# Railway fornisce la stringa completa in DATABASE_URL
-SQLALCHEMY_DATABASE_URL = os.getenv("postgresql://postgres:qBOGUzEOJvncBDqempQDLQcrhuLCXCLe@postgres.railway.internal:5432/railwaypostgresql://postgres:qBOGUzEOJvncBDqempQDLQcrhuLCXCLe@postgres.railway.internal:5432/railway")
+# 1. Recupera solo il NOME della variabile d'ambiente
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Se DATABASE_URL inizia con 'postgres://', SQLAlchemy potrebbe richiedere 'postgresql://'
-if SQLALCHEMY_DATABASE_URL and SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
+# 2. Se la variabile non è trovata, gestisci l'errore per evitare crash silenziosi
+if not SQLALCHEMY_DATABASE_URL:
+    raise ValueError("La variabile d'ambiente DATABASE_URL non è impostata!")
+
+# 3. Correggi il prefisso se necessario (come facevi già nel tuo codice)
+if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
     SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
