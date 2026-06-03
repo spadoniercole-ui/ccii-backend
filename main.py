@@ -219,7 +219,7 @@ def crea_corrispondenza(tag_xbrl: str, tag_sistema: str, db: Session = Depends(g
     return {"message": "Corrispondenza creata con successo."}
         
         # Carica il file XML in memoria
-        import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as ET
         root = ET.fromstring(contenuto)
         
         # Mappa dei principali tag della tassonomia XBRL Italiana (IT-GAAP)
