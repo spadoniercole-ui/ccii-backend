@@ -1,6 +1,8 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Date, ForeignKey, func
-from sqlalchemy.orm import relationship
-from database import Base
+from sqlalchemy import Column, Integer, String, LargeBinary, DateTime, Float, ForeignKey
+from database import Base # Assicurati che Base sia correttamente importato
+import datetime
+
+# ... ora le tue classi XbrlStaging, MappaturaVariabili, etc. possono usare LargeBinary, Column, ecc.
 
 class Role(Base):
     __tablename__ = "roles"
