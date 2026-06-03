@@ -1,66 +1,64 @@
-import os
-import sys
-import bcrypt
-from datetime import datetime, date
-from typing import Optional
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, func, Text
+from sqlalchemy.orm import relationship
+from database import Base
 
-# -- IMPORTS ESSENZIALI --
-from fastapi import FastAPI, Request, Depends, HTTPException, status, UploadFile, File
-from pydantic import BaseModel  # Verifica che questa riga sia esattamente qui
-from sqlalchemy.orm import Session
+# --- MODELLI ESISTENTI ---
+class Role(Base):
+    __tablename__ = "roles"
+    id = Column(Integer, primary_key=True)
+    name = Column(String, unique=True, nullable=False)
+    users = relationship("User", back_populates="role")
 
-# -- DATABASE E MODELLI --
-from database import engine, Base, get_db
-import models
+class TipoSpazio(Base):
+    __tablename__ = "tipi_spazio"
+    id = Column(Integer, primary_key=True)
+    nome = Column(String, nullable=False)
+    spazi = relationship("Spazio", back_populates="tipo_spazio")
 
-# -- CREAZIONE APP --
-app = FastAPI()
+class Spazio(Base):
+    __tablename__ = "spazi"
+    id = Column(Integer, primary_key=True)
+    nome = Column(String, nullable=False)
+    data_scadenza_licenza = Column(DateTime, nullable=True)
+    licenza_id = Column(Integer, ForeignKey("licenze.id"), nullable=True)
+    tipo_spazio_id = Column(Integer, ForeignKey("tipi_spazio.id"), nullable=True)
+    users = relationship("User", back_populates="spazio")
+    tipo_spazio = relationship("TipoSpazio", back_populates="spazi")
+    licenza = relationship("Licenza", back_populates="spazi")
 
-# -- SCHEMA PYDANTIC --
-# Se questo blocco fallisce, è perché il file precedente aveva errori di sintassi
-# (es. parentesi non chiuse, indentazione errata nelle righe precedenti)
-class LicenzaCreate(BaseModel):
-    intestatario: str
-    max_spazi: int
-    max_utenti_totali: int
-    max_aziende_totali: int
-    data_scadenza: str
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True)
+    email = Column(String, unique=True)
+    hashed_password = Column(String)
+    role_id = Column(Integer, ForeignKey("roles.id"))
+    spazio_id = Column(Integer, ForeignKey("spazi.id"))
+    role = relationship("Role", back_populates="users")
+    spazio = relationship("Spazio", back_populates="users")
 
-# -- ENDPOINT --
-@app.post("/superadmin/licenze", status_code=status.HTTP_201_CREATED)
-def create_licenza(dati: LicenzaCreate, db: Session = Depends(get_db)):
-    try:
-        scadenza = datetime.strptime(dati.data_scadenza, "%Y-%m-%d").date()
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Formato data non valido. Usa YYYY-MM-DD")
-        
-    nuova_licenza = models.Licenza(
-        intestatario=dati.intestatario,
-        max_spazi=dati.max_spazi,
-        max_utenti_totali=dati.max_utenti_totali,
-        max_aziende_totali=dati.max_aziende_totali,
-        data_scadenza=scadenza
-    )
-    db.add(nuova_licenza)
-    db.commit()
-    db.refresh(nuova_licenza)
-    return nuova_licenza
+class Licenza(Base):
+    __tablename__ = "licenze"
+    id = Column(Integer, primary_key=True, index=True)
+    intestatario = Column(String, nullable=False)
+    max_spazi = Column(Integer, default=1)
+    max_utenti_totali = Column(Integer, default=1)
+    max_aziende_totali = Column(Integer, default=1)
+    data_scadenza = Column(DateTime, nullable=False)
+    spazi = relationship("Spazio", back_populates="licenza")
 
-@app.post("/api/v1/analizzatore-xbrl")
-async def ricevi_xbrl(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    if not file.filename.endswith(('.xbrl', '.xml')):
-        raise HTTPException(status_code=400, detail="Formato file non supportato.")
-    
-    content = await file.read()
-    nuovo_staging = models.XbrlStaging(
-        filename=file.filename,
-        raw_content=content.decode('utf-8', errors='ignore'),
-        status="STAGING"
-    )
-    db.add(nuovo_staging)
-    db.commit()
-    return {"status": "success", "staging_id": nuovo_staging.id}
+# --- NUOVI MODELLI PER MODULO 8 (XBRL) ---
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+class XbrlStaging(Base):
+    __tablename__ = "xbrl_staging"
+    id = Column(Integer, primary_key=True)
+    filename = Column(String, nullable=False)
+    raw_content = Column(Text, nullable=False) # Il file salvato come testo
+    status = Column(String, default="PENDING_VALIDATION") # PENDING_VALIDATION, VALIDATED, ANALYZED
+    data_importazione = Column(DateTime, default=func.now())
+
+class MappaturaVariabili(Base):
+    __tablename__ = "mappatura_variabili"
+    id = Column(Integer, primary_key=True)
+    tag_xbrl_grezzo = Column(String, unique=True, nullable=False) # Es: "itcc-ci:PatrimonioNetto"
+    tag_sistema_target = Column(String, nullable=False)         # Es: "patrimonio_netto"
+    data_creazione = Column(DateTime, default=func.now())
