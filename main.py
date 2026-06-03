@@ -1,14 +1,15 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
-from fastapi import Depends, HTTPException, status, UploadFile, File
 from pydantic import BaseModel
 import models
-from database import get_db
+from database import get_db, engine, Base
 
-# --- INIZIALIZZAZIONE APP ---
+# Crea le tabelle nel DB se non esistono (utile per lo sviluppo)
+Base.metadata.create_all(bind=engine)
+
 app = FastAPI()
 
-# --- SCHEMA ---
+# --- SCHEMA PER LA VALIDAZIONE ---
 class LicenzaCreate(BaseModel):
     intestatario: str
     max_spazi: int
@@ -16,20 +17,47 @@ class LicenzaCreate(BaseModel):
     max_aziende_totali: int
     data_scadenza: str
 
-# --- ROUTE BASE (Test) ---
-@app.get("/")
-def read_root():
-    return {"status": "ok"}
-
-# --- ROUTE MODULO 8 ---
+# --- ENDPOINT MODULO 8: INGESTION ---
 @app.post("/api/v1/analizzatore-xbrl")
 async def ricevi_xbrl(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    content = await file.read()
-    nuovo_staging = models.XbrlStaging(
-        filename=file.filename,
-        raw_content=content.decode('utf-8', errors='ignore'),
-        status="PENDING_VALIDATION"
-    )
-    db.add(nuovo_staging)
-    db.commit()
-    return {"status": "success", "staging_id": nuovo_staging.id}
+    """
+    Fase 1: Caricamento e salvataggio nello Staging.
+    Il file viene salvato come stringa nel DB, permettendo di ritrovarlo
+    nella lista dei file importati.
+    """
+    if not file.filename.endswith(('.xbrl', '.xml')):
+        raise HTTPException(status_code=400, detail="Formato file non supportato.")
+    
+    try:
+        # Legge il contenuto del file
+        content = await file.read()
+        
+        # Salva nel modello XbrlStaging definito in models.py
+        nuovo_staging = models.XbrlStaging(
+            filename=file.filename,
+            raw_content=content.decode('utf-8', errors='ignore'),
+            status="PENDING_VALIDATION"
+        )
+        
+        db.add(nuovo_staging)
+        db.commit()
+        db.refresh(nuovo_staging)
+        
+        return {
+            "status": "success",
+            "message": "File caricato correttamente",
+            "staging_id": nuovo_staging.id,
+            "filename": nuovo_staging.filename
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Errore durante il salvataggio: {str(e)}")
+
+# --- TEST ROUTE ---
+@app.get("/")
+def read_root():
+    return {"status": "Sistema Analisi XBRL attivo"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
