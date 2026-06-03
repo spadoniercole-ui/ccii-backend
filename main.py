@@ -168,12 +168,21 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
 
 # --- ENDPOINT ANALIZZATORE XBRL REALE (PARSING DEI TAG IT-GAAP) ---
+from fastapi import File, UploadFile
+
 @app.post("/api/v1/analizzatore-xbrl")
-async def analizzatore_xbrl(file: UploadFile = File(...)):
-    """
-    Riceve il file XBRL/XML dal frontend, esegue il parsing dei namespace e dei tag
-    ufficiali della tassonomia italiana (IT-GAAP) ed estrae i dati finanziari reali.
-    """
+async def ricevi_xbrl(file: UploadFile = File(...)):
+    # Log per verificare che il server riceva il segnale dal frontend
+    print(f"Ricevuto file: {file.filename}")
+    
+    # Per ora, restituiamo un feedback che conferma la ricezione
+    # Questo ti permette di testare la connessione Frontend -> Backend
+    return {
+        "status": "received",
+        "filename": file.filename,
+        "message": "Connessione stabilita. Il server è pronto per il parsing."
+    }
+    
     if not file.filename.endswith('.xbrl') and not file.filename.endswith('.xml'):
         raise HTTPException(status_code=400, detail="Formato file non valido. Accettati solo .xbrl o .xml")
     
