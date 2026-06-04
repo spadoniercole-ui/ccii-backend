@@ -74,12 +74,16 @@ class Licenza(Base):
     max_utenti_totali = Column(Integer, default=1)
     max_aziende_totali = Column(Integer, default=1)
     data_scadenza = Column(Date, nullable=False)
+    
+    # Correzione Mapper: Relazione reciproca con Spazio
     spazi = relationship("Spazio", back_populates="licenza")
 
 class XbrlStaging(Base):
     __tablename__ = "xbrl_staging"
     id = Column(Integer, primary_key=True, index=True)
     filename = Column(String, nullable=False)
-    raw_content = Column(Text, nullable=False)  # Text gestisce stringhe lunghe (i file XBRL)
-    status = Column(String, default="PENDING_VALIDATION")
-    data_caricamento = Column(DateTime, default=func.now())
+    raw_content = Column(Text, nullable=False)
+    status = Column(String, default="PENDING_VALIDATION")  # Esito (VALIDATED, INVALID, ecc.)
+    anno_riferimento = Column(Integer, nullable=True)      # <-- FONDAMENTALE PER LA GRIGLIA
+    azienda = Column(String, nullable=True)               # <-- NUOVO: Mostra il nome in griglia
+    data_caricamento = Column(DateTime, default=func.now()) # Sequenza cronologica
