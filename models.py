@@ -82,6 +82,3 @@ class XbrlStaging(Base):
     raw_content = Column(Text, nullable=False)  # Text gestisce stringhe lunghe (i file XBRL)
     status = Column(String, default="PENDING_VALIDATION")
     data_caricamento = Column(DateTime, default=func.now())
-    
-    # Relazione inversa
-    spazi = relationship("Spazio", back_populates="licenza")
