@@ -1,3 +1,4 @@
+from sqlalchemy import Text # Assicurati che Text sia importato in cima se non c'è
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Date, ForeignKey, func
 from sqlalchemy.orm import relationship
 from database import Base
@@ -73,6 +74,14 @@ class Licenza(Base):
     max_utenti_totali = Column(Integer, default=1)
     max_aziende_totali = Column(Integer, default=1)
     data_scadenza = Column(Date, nullable=False)
+
+class XbrlStaging(Base):
+    __tablename__ = "xbrl_staging"
+    id = Column(Integer, primary_key=True, index=True)
+    filename = Column(String, nullable=False)
+    raw_content = Column(Text, nullable=False)  # Text gestisce stringhe lunghe (i file XBRL)
+    status = Column(String, default="PENDING_VALIDATION")
+    data_caricamento = Column(DateTime, default=func.now())
     
     # Relazione inversa
     spazi = relationship("Spazio", back_populates="licenza")
