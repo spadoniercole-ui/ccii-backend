@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware  # <-- AGGIUNGI QUESTO
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 import models
@@ -8,6 +9,15 @@ from database import get_db, engine, Base
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+
+# --- CONFIGURAZIONE CORS (AGGIUNGI QUESTO BLOCCO SUBITO SOTTO APP = FASTAPI()) ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In produzione sostituisci con l'URL esatto del frontend (es. ["http://localhost:3000"])
+    allow_credentials=True,
+    allow_methods=["*"],  # Permette POST, GET, OPTIONS, ecc.
+    allow_headers=["*"],
+)
 
 # --- SCHEMA PER LA VALIDAZIONE ---
 class LicenzaCreate(BaseModel):
