@@ -1,25 +1,26 @@
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
-from fastapi.middleware.cors import CORSMiddleware  # <-- AGGIUNGI QUESTO
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+import xml.etree.ElementTree as ET
 import models
 from database import get_db, engine, Base
 
-# Crea le tabelle nel DB se non esistono (utile per lo sviluppo)
+# Configurazione speculare del DB: crea le tabelle all'avvio se mancanti
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI()
+app = FastAPI(title="CCII Platform - API Gateway")
 
-# --- CONFIGURAZIONE CORS (AGGIUNGI QUESTO BLOCCO SUBITO SOTTO APP = FASTAPI()) ---
+# Middleware CORS per consentire le chiamate da Vercel/Locale
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In produzione sostituisci con l'URL esatto del frontend (es. ["http://localhost:3000"])
+    allow_origins=["*"], 
     allow_credentials=True,
-    allow_methods=["*"],  # Permette POST, GET, OPTIONS, ecc.
+    allow_methods=["*"],  
     allow_headers=["*"],
 )
 
-# --- SCHEMA PER LA VALIDAZIONE ---
+# --- SCHEMI DI VALIDAZIONE PYDANTIC (Conservati dal tuo impianto originale) ---
 class LicenzaCreate(BaseModel):
     intestatario: str
     max_spazi: int
@@ -27,26 +28,81 @@ class LicenzaCreate(BaseModel):
     max_aziende_totali: int
     data_scadenza: str
 
-# --- ENDPOINT MODULO 8: INGESTION ---
+
+# --- UTILITY: PARSER NATIVO XBRL INFOCAMERE ---
+def estrai_dati_xbrl(xml_content: str) -> dict:
+    """
+    Esegue il parsing dei nodi XML generati dai software di bilancio italiani.
+    Mappa i contesti c0_i (Istantanea anno corrente) e c0_d (Durata anno corrente).
+    """
+    try:
+        root = ET.fromstring(xml_content)
+        
+        def trova_valore(tag, context_ref=None):
+            for elem in root.findall(f".//{{*}}{tag}"):
+                if context_ref:
+                    if elem.attrib.get('contextRef') == context_ref:
+                        return elem.text
+                else:
+                    return elem.text
+            return None
+
+        # Estrazione Anagrafica
+        denominazione = trova_valore('DatiAnagraficiDenominazione', 'c0_i')
+        codice_fiscale = trova_valore('DatiAnagraficiCodiceFiscale', 'c0_i')
+        partita_iva = trova_valore('DatiAnagraficiPartitaIva', 'c0_i')
+        forma_giuridica = trova_valore('DatiAnagraficiFormaGiuridica', 'c0_i')
+        
+        # Estrazione Dati di Bilancio Monetari
+        totale_attivo = trova_valore('TotaleAttivo', 'c0_i')
+        patrimonio_netto = trova_valore('TotalePatrimonioNetto', 'c0_i')
+        totale_debiti = trova_valore('TotaleDebiti', 'c0_i')
+        ricavi = trova_valore('ValoreProduzioneRicaviVenditePrestazioni', 'c0_d')
+        utile_perdita = trova_valore('UtilePerditaEsercizio', 'c0_d')
+
+        return {
+            "azienda": denominazione or "Non rilevata",
+            "codice_fiscale": codice_fiscale or "Non rilevato",
+            "partita_iva": partita_iva or "Non rilevata",
+            "forma_giuridica": forma_giuridica or "Non rilevata",
+            "metriche_chiave": {
+                "totale_attivo": int(totale_attivo) if totale_attivo else 0,
+                "patrimonio_netto": int(patrimonio_netto) if patrimonio_netto else 0,
+                "totale_debiti": int(totale_debiti) if totale_debiti else 0,
+                "ricavi_vendite": int(ricavi) if ricavi else 0,
+                "utile_perdita_esercizio": int(utile_perdita) if utile_perdita else 0
+            }
+        }
+    except Exception as e:
+        return {"errore_parsing": f"Struttura XML non valida o non supportata: {str(e)}"}
+
+
+# --- ENDPOINTS OPERATIVI ---
+
 @app.post("/api/v1/analizzatore-xbrl")
 async def ricevi_xbrl(file: UploadFile = File(...), db: Session = Depends(get_db)):
     """
-    Fase 1: Caricamento e salvataggio nello Staging.
-    Il file viene salvato come stringa nel DB, permettendo di ritrovarlo
-    nella lista dei file importati.
+    Riceve il file dal frontend, esegue il parsing dei dati vitali e popola 
+    la tabella xbrl_staging su Railway impostando lo stato di validazione.
     """
     if not file.filename.endswith(('.xbrl', '.xml')):
-        raise HTTPException(status_code=400, detail="Formato file non supportato.")
+        raise HTTPException(status_code=400, detail="Formato file non valido. Accettati solo .xbrl e .xml")
     
     try:
-        # Legge il contenuto del file
         content = await file.read()
+        raw_text = content.decode('utf-8', errors='ignore')
         
-        # Salva nel modello XbrlStaging definito in models.py
+        # Elaborazione immediata del contenuto
+        analisi_risultato = estrai_dati_xbrl(raw_text)
+        
+        # Definizione dello stato in base al successo dell'estrazione
+        stato_validazione = "VALIDATED" if "errore_parsing" not in analisi_risultato else "INVALID_STRUCTURE"
+        
+        # Scrittura su DB Postgres (Railway)
         nuovo_staging = models.XbrlStaging(
             filename=file.filename,
-            raw_content=content.decode('utf-8', errors='ignore'),
-            status="PENDING_VALIDATION"
+            raw_content=raw_text,
+            status=stato_validazione
         )
         
         db.add(nuovo_staging)
@@ -55,18 +111,23 @@ async def ricevi_xbrl(file: UploadFile = File(...), db: Session = Depends(get_db
         
         return {
             "status": "success",
-            "message": "File caricato correttamente",
             "staging_id": nuovo_staging.id,
-            "filename": nuovo_staging.filename
+            "filename": nuovo_staging.filename,
+            "stato_validazione": stato_validazione,
+            "dati_complessivi": analisi_risultato
         }
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Errore durante il salvataggio: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Errore nel caricamento a database: {str(e)}")
 
-# --- TEST ROUTE ---
+
 @app.get("/")
 def read_root():
-    return {"status": "Sistema Analisi XBRL attivo"}
+    return {
+        "status": "Online",
+        "modulo_xbrl": "Pronto",
+        "ambiente": "Production/Railway Linked"
+    }
 
 if __name__ == "__main__":
     import uvicorn
