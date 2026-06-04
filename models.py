@@ -74,6 +74,7 @@ class Licenza(Base):
     max_utenti_totali = Column(Integer, default=1)
     max_aziende_totali = Column(Integer, default=1)
     data_scadenza = Column(Date, nullable=False)
+    spazi = relationship("Spazio", back_populates="licenza")
 
 class XbrlStaging(Base):
     __tablename__ = "xbrl_staging"
