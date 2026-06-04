@@ -78,8 +78,8 @@ async def ricevi_xbrl(file: UploadFile = File(...), db: Session = Depends(get_db
         
         return {
             "status": "success",
-            "staging_id": nuevo_staging.id,
-            "filename": nuevo_staging.filename,
+            "staging_id": nuovo_staging.id,       # <-- CORRETTO CON LA 'O'
+            "filename": nuovo_staging.filename,   # <-- CORRETTO CON LA 'O'
             "anno": anno,
             "azienda": azienda
         }
