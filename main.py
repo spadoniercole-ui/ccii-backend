@@ -75,7 +75,7 @@ def analizza_basico_xbrl(xml_content: str) -> tuple:
 # --- ENDPOINTS ---
 
 @app.post("/api/v1/analizzatore-xbrl")
-@router.post("/analizzatore-xbrl")
+@app.post("/analizzatore-xbrl")
 async def upload_xbrl(file: UploadFile = File(...), db: Session = Depends(get_db)):
     
     # 1. Il tuo codice attuale che legge il file (NON TOCCARLO)
