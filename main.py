@@ -45,7 +45,7 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,          # Consente le richieste dai domini nell'elenco
+    allow_origins=["*"],          # Consente le richieste dai domini nell'elenco
     # In alternativa, solo per test rapidi, puoi usare: allow_origins=["*"]
     allow_credentials=True,
     allow_methods=["*"],            # Consente POST, GET, OPTIONS, ecc.
