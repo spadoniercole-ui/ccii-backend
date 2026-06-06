@@ -11,11 +11,27 @@ from database import get_db, engine, Base
 import xml.etree.ElementTree as ET
 from typing import Dict, Any, List
 
+import xml.etree.ElementTree as ET
+from typing import Dict, Any, List
+
 def estrai_valore_xbrl(root: ET.Element, local_name: str, anno_riferimento: str) -> float:
-    # ... (tutto il codice della funzione fornito sopra) ...
+    """Estrae il valore numerico di un tag XBRL filtrando per local-name e anno nel contextRef."""
+    for elem in root.iter():
+        if elem.tag.split('}')[-1] == local_name:
+            context_ref = elem.attrib.get('contextRef', '')
+            if str(anno_riferimento) in context_ref:
+                try:
+                    return float(elem.text.strip()) if elem.text else 0.0
+                except ValueError:
+                    continue
+    return 0.0
 
 def estrai_anagrafica_xbrl(root: ET.Element, local_name: str) -> str:
-    # ... (tutto il codice della funzione fornito sopra) ...
+    """Estrae il testo di un tag anagrafico XBRL filtrando per local-name."""
+    for elem in root.iter():
+        if elem.tag.split('}')[-1] == local_name:
+            return elem.text.strip() if elem.text else ""
+    return ""
 
 Base.metadata.create_all(bind=engine)
 
