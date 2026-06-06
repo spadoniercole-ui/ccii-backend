@@ -35,9 +35,6 @@ def estrai_anagrafica_xbrl(root: ET.Element, local_name: str) -> str:
 
 Base.metadata.create_all(bind=engine)
 
-# main.py
-app.include_router(router, prefix="/api/v1")
-
 app = FastAPI()
 
 # Elenco dei domini autorizzati a comunicare con il backend
@@ -54,6 +51,10 @@ app.add_middleware(
     allow_methods=["*"],            # Consente POST, GET, OPTIONS, ecc.
     allow_headers=["*"],            # Consente tutti gli header (Content-Type, Authorization, ecc.)
 )
+
+# main.py
+app.include_router(router, prefix="/api/v1")
+
 # --- UTILITY: ESTRATTORE ISTANTANEO ANNO E ANAGRAFICA ---
 def analizza_basico_xbrl(xml_content: str) -> tuple:
     """
