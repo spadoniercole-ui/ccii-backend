@@ -4,7 +4,6 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from app.routes import router
 import xml.etree.ElementTree as ET
-import re
 import models
 from database import get_db, engine, Base
 # --- INCOLLA QUI SUBITO DOPO GLI IMPORT DEL FILE ---
