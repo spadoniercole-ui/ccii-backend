@@ -35,18 +35,24 @@ def estrai_anagrafica_xbrl(root: ET.Element, local_name: str) -> str:
 
 Base.metadata.create_all(bind=engine)
 
+# main.py
+app.include_router(router, prefix="/api/v1")
+
 app = FastAPI()
+
+# Elenco dei domini autorizzati a comunicare con il backend
 origins = [
-    "http://https://ccii-backend-production.up.railway.app",  # Sostituisci con l'URL reale del tuo frontend
-    # "https://tuo-dominio-frontend.com"
+    "https://cciiplatform-5vo0rh9nd-spadoniercole-uis-projects.vercel.app", # Il tuo dominio Vercel attuale
+    "http://localhost:3000", # Per i test in locale
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins, # Oppure ["*"] per test rapido in locale
+    allow_origins=origins,          # Consente le richieste dai domini nell'elenco
+    # In alternativa, solo per test rapidi, puoi usare: allow_origins=["*"]
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],            # Consente POST, GET, OPTIONS, ecc.
+    allow_headers=["*"],            # Consente tutti gli header (Content-Type, Authorization, ecc.)
 )
 # --- UTILITY: ESTRATTORE ISTANTANEO ANNO E ANAGRAFICA ---
 def analizza_basico_xbrl(xml_content: str) -> tuple:
