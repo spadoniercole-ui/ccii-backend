@@ -35,16 +35,19 @@ def estrai_anagrafica_xbrl(root: ET.Element, local_name: str) -> str:
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="CCII Platform - Analizzatore XBRL")
+app = FastAPI()
+origins = [
+    "http://https://ccii-backend-production.up.railway.app",  # Sostituisci con l'URL reale del tuo frontend
+    # "https://tuo-dominio-frontend.com"
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins, # Oppure ["*"] per test rapido in locale
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 # --- UTILITY: ESTRATTORE ISTANTANEO ANNO E ANAGRAFICA ---
 def analizza_basico_xbrl(xml_content: str) -> tuple:
     """
