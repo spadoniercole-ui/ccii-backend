@@ -6,6 +6,16 @@ import xml.etree.ElementTree as ET
 import re
 import models
 from database import get_db, engine, Base
+# --- INCOLLA QUI SUBITO DOPO GLI IMPORT DEL FILE ---
+
+import xml.etree.ElementTree as ET
+from typing import Dict, Any, List
+
+def estrai_valore_xbrl(root: ET.Element, local_name: str, anno_riferimento: str) -> float:
+    # ... (tutto il codice della funzione fornito sopra) ...
+
+def estrai_anagrafica_xbrl(root: ET.Element, local_name: str) -> str:
+    # ... (tutto il codice della funzione fornito sopra) ...
 
 Base.metadata.create_all(bind=engine)
 
@@ -49,12 +59,32 @@ def analizza_basico_xbrl(xml_content: str) -> tuple:
 # --- ENDPOINTS ---
 
 @app.post("/api/v1/analizzatore-xbrl")
-async def ricevi_xbrl(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    """
-    Riceve l'XBRL, estrae i metadati chiave (Azienda, Anno) e registra la sequenza nel DB.
-    """
-    if not file.filename.endswith(('.xbrl', '.xml')):
-        raise HTTPException(status_code=400, detail="Formato file non supportato.")
+@router.post("/analizzatore-xbrl")
+async def upload_xbrl(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    
+    # 1. Il tuo codice attuale che legge il file (NON TOCCARLO)
+    file_bytes = await file.read()
+    
+    # 2. Il tuo codice attuale che inserisce il record nello Staging DB (NON TOCCARLO)
+    # Esempio: new_staging = db.add(StagingXbrl(...))
+    # Esempio: staging_id = new_staging.id
+    staging_id = 28 # <--- Usa la tua variabile reale che recupera l'ID appena generato
+    
+    # =========================================================================
+    # 3. PUNTO DI INSERIMENTO: ELABORAZIONE MATEMATICA
+    # =========================================================================
+    try:
+        # Chiamiamo la funzione che estrae i tag veri e calcola gli indici
+        risultato_completo = elabora_pipeline_xbrl(file_bytes, file.filename, staging_id)
+        
+        # Se vuoi persistere i dati calcolati anche nelle tue tabelle (es. tb_indici),
+        # questo è il punto in cui farlo usando i valori dentro 'risultato_completo'
+        
+        # 4. RITORNA IL PAYLOAD COMPLETO AL FRONTEND
+        return resultado_completo
+
+    except Exception as e:
+        return {"status": "error", "message": f"Errore elaborazione: {str(e)}"}
     
     try:
         content = await file.read()
