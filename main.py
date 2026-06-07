@@ -2,7 +2,6 @@ from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from app.routes.admin import router
 from fastapi import APIRouter
 from app.routes import router as main_router  # Questo caricherà il router pulito di routes.py
 import xml.etree.ElementTree as ET
