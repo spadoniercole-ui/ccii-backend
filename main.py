@@ -3,13 +3,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from app.routes import router
+from fastapi import APIRouter
+from app.routes import router as main_router  # Questo caricherà il router pulito di routes.py
 import xml.etree.ElementTree as ET
 import models
+
 from database import get_db, engine, Base
 # --- INCOLLA QUI SUBITO DOPO GLI IMPORT DEL FILE ---
-
-import xml.etree.ElementTree as ET
-from typing import Dict, Any, List
 
 import xml.etree.ElementTree as ET
 from typing import Dict, Any, List
@@ -35,7 +35,11 @@ def estrai_anagrafica_xbrl(root: ET.Element, local_name: str) -> str:
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI()
+app = FastAPI(title="CCII Platform - Super Admin Backoffice")
+
+app.include_router(main_router)
+
+router = APIRouter()
 
 # Elenco dei domini autorizzati a comunicare con il backend
 origins = [
