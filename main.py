@@ -34,7 +34,7 @@ def estrai_anagrafica_xbrl(root: ET.Element, local_name: str) -> str:
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="CCII Platform - Super Admin Backoffice")
+app = FastAPI()
 
 app.include_router(main_router)
 
