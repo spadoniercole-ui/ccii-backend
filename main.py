@@ -3,15 +3,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from fastapi import APIRouter
-from app.routes import router as main_router  # Questo caricherà il router pulito di routes.py
+from app.routes import router as main_router
 import xml.etree.ElementTree as ET
 import models
+import re  # <-- AGGIUNTO: Necessario per l'estrazione dell'anno con le regex
 
 from database import get_db, engine, Base
-# --- INCOLLA QUI SUBITO DOPO GLI IMPORT DEL FILE ---
-
-import xml.etree.ElementTree as ET
 from typing import Dict, Any, List
+
+# --- UTILITY DI ESTRAZIONE XBRL ---
 
 def estrai_valore_xbrl(root: ET.Element, local_name: str, anno_riferimento: str) -> float:
     """Estrae il valore numerico di un tag XBRL filtrando per local-name e anno nel contextRef."""
@@ -32,57 +32,57 @@ def estrai_anagrafica_xbrl(root: ET.Element, local_name: str) -> str:
             return elem.text.strip() if elem.text else ""
     return ""
 
-Base.metadata.create_all(bind=engine)
-
-app = FastAPI()
-
-app.include_router(main_router)
-
-router = APIRouter()
-
-# Elenco dei domini autorizzati a comunicare con il backend
-origins = [
-    "https://cciiplatform-5vo0rh9nd-spadoniercole-uis-projects.vercel.app", # Il tuo dominio Vercel attuale
-    "http://localhost:3000", # Per i test in locale
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],          # Consente le richieste dai domini nell'elenco
-    # In alternativa, solo per test rapidi, puoi usare: allow_origins=["*"]
-    allow_credentials=True,
-    allow_methods=["*"],            # Consente POST, GET, OPTIONS, ecc.
-    allow_headers=["*"],            # Consente tutti gli header (Content-Type, Authorization, ecc.)
-)
-
-# main.py
-app.include_router(router, prefix="/api/v1")
-
-# --- UTILITY: ESTRATTORE ISTANTANEO ANNO E ANAGRAFICA ---
 def analizza_basico_xbrl(xml_content: str) -> tuple:
     """
-    Legge rapidamente il file per estrarre l'anno di riferimento e la denominazione.
+    Legge rapidamente il file per estrarre l'anno di riferimento e la denominazione aziendale.
     """
     try:
         root = ET.fromstring(xml_content)
         
         # Cerca il tag della denominazione azienda
         azienda = "Non rilevata"
-        for elem in root.findall(f".//{{*}}DatiAnagraficiDenominazione"):
-            if elem.text:
-                azienda = elem.text
-                break
+        for elem in root.iter():
+            if elem.tag.split('}')[-1] == "DatiAnagraficiDenominazione":
+                if elem.text:
+                    azienda = elem.text.strip()
+                    break
         
         # Identifica l'anno cercando i tag di chiusura esercizio nei contesti (es. 2024-12-31)
         anno = None
         date_trovate = re.findall(r'\d{4}-\d{2}-\d{2}', xml_content)
         if date_trovate:
-            # Prende l'anno dalla prima data valida trovata (spesso la fine del periodo corrente)
             anno = int(date_trovate[0].split('-')[0])
             
         return azienda, anno
     except Exception:
         return "File non valido", None
+
+
+# --- INIZIALIZZAZIONE APPLICAZIONE ---
+
+Base.metadata.create_all(bind=engine)
+
+app = FastAPI()
+
+# Inclusione dei router
+app.include_router(main_router)
+
+router = APIRouter()
+app.include_router(router, prefix="/api/v1")
+
+# Configurazione CORS
+origins = [
+    "https://cciiplatform-5vo0rh9nd-spadoniercole-uis-projects.vercel.app",
+    "http://localhost:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # --- ENDPOINTS ---
@@ -91,20 +91,15 @@ def analizza_basico_xbrl(xml_content: str) -> tuple:
 @app.post("/analizzatore-xbrl")
 async def upload_xbrl(file: UploadFile = File(...), db: Session = Depends(get_db)):
     try:
-        # 1. LEGGI IL FILE UNA SOLA VOLTA
+        # 1. Leggi il contenuto del file una sola volta
         file_bytes = await file.read()
-        
-        # 2. SE SERVE RIUSARE IL FILE DOPO (es. per altre funzioni), resetta il cursore
-        await file.seek(0)
-        
-        # Converte i byte in testo per l'analisi basica e il database
         raw_text = file_bytes.decode('utf-8', errors='ignore')
         
-        # 3. ESTRAZIONE METADATI (Azienda e Anno)
+        # 2. Estrazione metadati per l'anteprima e la griglia
         azienda, anno = analizza_basico_xbrl(raw_text)
         stato_validazione = "VALIDATED" if anno else "INVALID_STRUCTURE"
         
-        # 4. SALVATAGGIO NEL DATABASE (XbrlStaging)
+        # 3. Salvataggio nel database (Tabella Staging)
         nuovo_staging = models.XbrlStaging(
             filename=file.filename,
             raw_content=raw_text,
@@ -117,31 +112,34 @@ async def upload_xbrl(file: UploadFile = File(...), db: Session = Depends(get_db
         db.commit()
         db.refresh(nuovo_staging)
         
-        # 5. ELABORAZIONE MATEMATICA (Pipeline)
-        # Passiamo 'file_bytes' che abbiamo letto all'inizio
-        try:
-            # Assicurati che 'elabora_pipeline_xbrl' sia importata o definita
-            risultato_completo = elabora_pipeline_xbrl(file_bytes, file.filename, nuovo_staging.id)
-            return risultato_completo
-        except NameError:
-            # Se la funzione matematica non è ancora pronta, restituiamo il successo del caricamento
-            return {
-                "status": "success",
-                "staging_id": nuovo_staging.id,
-                "filename": nuovo_staging.filename,
-                "anno": anno,
-                "azienda": azienda
-            }
+        # 4. [OPZIONALE] Se hai già inserito la funzione logica/matematica degli indici,
+        # puoi decommentare le righe qui sotto per calcolarli immediatamente usando l'ID reale:
+        # 
+        # try:
+        #     risultato_calcoli = elabora_pipeline_xbrl(file_bytes, file.filename, nuovo_staging.id)
+        #     return risultato_calcoli
+        # except NameError:
+        #     pass
+
+        # 5. Ritorno della risposta standard di successo (Alimenta la griglia del Frontend)
+        return {
+            "status": "success",
+            "staging_id": nuovo_staging.id,
+            "filename": nuovo_staging.filename,
+            "anno": anno,
+            "azienda": azienda
+        }
 
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Errore: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Errore durante il salvataggio: {str(e)}")
+
 
 @app.get("/api/v1/analizzatore-xbrl")
 def ottieni_cronologia_caricamenti(db: Session = Depends(get_db)):
     """
-    Ritorna la lista dei caricamenti effettuati, ordinata cronologicamente 
-    dal più recente. Alimenta la griglia del frontend.
+    Ritorna la lista dei caricamenti effettuati, ordinata cronologicamente.
+    Alimenta la griglia del frontend.
     """
     try:
         storico = db.query(models.XbrlStaging).order_by(models.XbrlStaging.data_caricamento.desc()).all()
