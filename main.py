@@ -90,39 +90,21 @@ def analizza_basico_xbrl(xml_content: str) -> tuple:
 @app.post("/api/v1/analizzatore-xbrl")
 @app.post("/analizzatore-xbrl")
 async def upload_xbrl(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    
-    # 1. Il tuo codice attuale che legge il file (NON TOCCARLO)
-    file_bytes = await file.read()
-    
-    # 2. Il tuo codice attuale che inserisce il record nello Staging DB (NON TOCCARLO)
-    # Esempio: new_staging = db.add(StagingXbrl(...))
-    # Esempio: staging_id = new_staging.id
-    staging_id = 28 # <--- Usa la tua variabile reale che recupera l'ID appena generato
-    
-    # =========================================================================
-    # 3. PUNTO DI INSERIMENTO: ELABORAZIONE MATEMATICA
-    # =========================================================================
     try:
-        # Chiamiamo la funzione che estrae i tag veri e calcola gli indici
-        risultato_completo = elabora_pipeline_xbrl(file_bytes, file.filename, staging_id)
+        # 1. LEGGI IL FILE UNA SOLA VOLTA
+        file_bytes = await file.read()
         
-        # Se vuoi persistere i dati calcolati anche nelle tue tabelle (es. tb_indici),
-        # questo è il punto in cui farlo usando i valori dentro 'risultato_completo'
+        # 2. SE SERVE RIUSARE IL FILE DOPO (es. per altre funzioni), resetta il cursore
+        await file.seek(0)
         
-        # 4. RITORNA IL PAYLOAD COMPLETO AL FRONTEND
-        return resultado_completo
-
-    except Exception as e:
-        return {"status": "error", "message": f"Errore elaborazione: {str(e)}"}
-    
-    try:
-        content = await file.read()
-        raw_text = content.decode('utf-8', errors='ignore')
+        # Converte i byte in testo per l'analisi basica e il database
+        raw_text = file_bytes.decode('utf-8', errors='ignore')
         
-        # Estrazione metadati per la griglia
+        # 3. ESTRAZIONE METADATI (Azienda e Anno)
         azienda, anno = analizza_basico_xbrl(raw_text)
         stato_validazione = "VALIDATED" if anno else "INVALID_STRUCTURE"
         
+        # 4. SALVATAGGIO NEL DATABASE (XbrlStaging)
         nuovo_staging = models.XbrlStaging(
             filename=file.filename,
             raw_content=raw_text,
@@ -135,17 +117,25 @@ async def upload_xbrl(file: UploadFile = File(...), db: Session = Depends(get_db
         db.commit()
         db.refresh(nuovo_staging)
         
-        return {
-            "status": "success",
-            "staging_id": nuovo_staging.id,       # <-- CORRETTO CON LA 'O'
-            "filename": nuovo_staging.filename,   # <-- CORRETTO CON LA 'O'
-            "anno": anno,
-            "azienda": azienda
-        }
+        # 5. ELABORAZIONE MATEMATICA (Pipeline)
+        # Passiamo 'file_bytes' che abbiamo letto all'inizio
+        try:
+            # Assicurati che 'elabora_pipeline_xbrl' sia importata o definita
+            risultato_completo = elabora_pipeline_xbrl(file_bytes, file.filename, nuovo_staging.id)
+            return risultato_completo
+        except NameError:
+            # Se la funzione matematica non è ancora pronta, restituiamo il successo del caricamento
+            return {
+                "status": "success",
+                "staging_id": nuovo_staging.id,
+                "filename": nuovo_staging.filename,
+                "anno": anno,
+                "azienda": azienda
+            }
+
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Errore durante il salvataggio: {str(e)}")
-
+        raise HTTPException(status_code=500, detail=f"Errore: {str(e)}")
 
 @app.get("/api/v1/analizzatore-xbrl")
 def ottieni_cronologia_caricamenti(db: Session = Depends(get_db)):
