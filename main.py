@@ -192,10 +192,10 @@ async def upload_xbrl(file: UploadFile = File(...)):
         file_bytes = await file.read()
         staging_id_finto = 28 
         risultato_completo = elabora_pipeline_xbrl(file_bytes, file.filename, staging_id_finto)
-        return resultado_completo
+        return risultato_completo # <-- FIX: assicurati che sia scritto con la 'i'
     except Exception as e:
         return {"status": "error", "message": f"Errore elaborazione: {str(e)}"}
-
+        
 @app.get("/")
 def read_root():
     return {"status": "Sistema Analisi XBRL - Doppia Estrazione Corrente/Precedente Attiva"}
