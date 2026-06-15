@@ -199,3 +199,9 @@ async def upload_xbrl(file: UploadFile = File(...)):
 @app.get("/")
 def read_root():
     return {"status": "Sistema Analisi XBRL - Doppia Estrazione Corrente/Precedente Attiva"}
+
+if __name__ == "__main__":
+    import uvicorn
+    # Legge la porta di Railway, se non esiste usa la 8000 per il locale
+    port = int(os.environ.get("PORT", 8000)) 
+    uvicorn.run(app, host="0.0.0.0", port=port)
