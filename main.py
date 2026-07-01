@@ -3,122 +3,163 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi import APIRouter
 import xml.etree.ElementTree as ET
 import re
+import os
 from typing import Dict, Any, List
 
 app = FastAPI()
-router = APIRouter()
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# --- DIZIONARIO MASTER STRUTTURALE (12 PARAMETRI TARGET) ---
+# --- MAPPA MASTER DEI PARAMETRI RICHIESTI DAGLI INDICI DELLA CRISI ---
 PARAMETRI_PARIFICAZIONE = [
-    {"categoria": "REDDITIVITÀ", "indice_target": "ROE", "parametro_logico": "Utile Netto", "tag_master": "it-cc-ci_UtilePerditaEsercizio", "tag_clean": "utileperditaesercizio"},
-    {"categoria": "REDDITIVITÀ", "indice_target": "ROE", "parametro_logico": "Patrimonio Netto", "tag_master": "it-cc-ci_PatrimonioNetto", "tag_clean": "patrimonionetto"},
-    {"categoria": "REDDITIVITÀ", "indice_target": "ROI / ROS", "parametro_logico": "Risultato Operativo (EBIT)", "tag_master": "it-cc-ci_DifferenzaValoreCostiProduzione", "tag_clean": "differenzavalorecostiproduzione"},
-    {"categoria": "REDDITIVITÀ", "indice_target": "ROI / ROA", "parametro_logico": "Totale Attivo", "tag_master": "it-cc-ci_TotaleAttivoPassivo", "tag_clean": "totaleattivopassivo"},
-    {"categoria": "REDDITIVITÀ", "indice_target": "ROS / EBITDA %", "parametro_logico": "Ricavi delle Vendite", "tag_master": "it-cc-ci_RicaviVenditePrestazioni", "tag_clean": "ricavivenditeprestazioni"},
-    {"categoria": "LIQUIDITÀ", "indice_target": "Current / Quick Ratio", "parametro_logico": "Attivo Corrente", "tag_master": "it-cc-ci_AttivoCircolanteTotale", "tag_clean": "attivocircolantetotale"},
-    {"categoria": "LIQUIDITÀ", "indice_target": "Current / Quick Ratio", "parametro_logico": "Passivo Corrente", "tag_master": "it-cc-ci_DebitiEsigibiliEntroEsercizio", "tag_clean": "debitiesigibilientroesercizio"},
-    {"categoria": "LIQUIDITÀ", "indice_target": "Quick Ratio", "parametro_logico": "Rimanenze", "tag_master": "it-cc-ci_RimanenzeTotale", "tag_clean": "rimanenzetotale"},
-    {"categoria": "SOLIDITÀ", "indice_target": "Leverage", "parametro_logico": "Totale Debiti", "tag_master": "it-cc-ci_DebitiTotale", "tag_clean": "debititotale"},
-    {"categoria": "SOLIDITÀ", "indice_target": "Copertura Immobilizzazioni", "parametro_logico": "Immobilizzazioni", "tag_master": "it-cc-ci_ImmobilizzazioniTotale", "tag_clean": "immobilizzazionitotale"},
-    {"categoria": "CCII_CRISI", "indice_target": "DSCR / Cash Flow", "parametro_logico": "Ammortamenti e Svalutazioni", "tag_master": "it-cc-ci_AmmortamentiSvalutazioniTotale", "tag_clean": "ammortamentisvalutazionitotale"},
-    {"categoria": "CCII_CRISI", "indice_target": "DSCR / Cash Flow", "parametro_logico": "Accantonamenti", "tag_master": "it-cc-ci_AccantonamentiPerRischiOneri", "tag_clean": "accantonamentiperrischioneri"}
+    {
+        "categoria": "REDDITIVITÀ",
+        "indice_target": "ROE",
+        "parametro_logico": "Utile Netto",
+        "tag_master": "UtilePerditaEsercizio",
+        "aliases": ["UtilePerditaEsercizio", "RisultatoEsercizio", "UtileOPerditaDellEsercizio"]
+    },
+    {
+        "categoria": "REDDITIVITÀ",
+        "indice_target": "ROE",
+        "parametro_logico": "Patrimonio Netto",
+        "tag_master": "TotalePatrimonioNetto",
+        "aliases": ["PatrimonioNetto", "PatrimonioNettoCapitale", "TotalePatrimonioNetto"]
+    },
+    {
+        "categoria": "REDDITIVITÀ",
+        "indice_target": "ROI / ROS",
+        "parametro_logico": "Risultato Operativo (EBIT)",
+        "tag_master": "DifferenzaValoreCostiProduzione",
+        "aliases": ["DifferenzaValoreCostiProduzione", "MargineOperativoLordo", "RisultatoOperativo"]
+    },
+    {
+        "categoria": "REDDITIVITÀ",
+        "indice_target": "ROS / EBITDA %",
+        "parametro_logico": "Ricavi delle Vendite",
+        "tag_master": "RicaviVenditePrestazioni",
+        "aliases": ["RicaviVenditePrestazioni", "ValoreDellaProduzione"]
+    },
+    {
+        "categoria": "LIQUIDITÀ",
+        "indice_target": "Current Ratio",
+        "parametro_logico": "Attivo Corrente",
+        "tag_master": "TotaleAttivoCircolante",
+        "aliases": ["TotaleAttivoCircolante", "AttivoCircolanteTotale"]
+    },
+    {
+        "categoria": "LIQUIDITÀ",
+        "indice_target": "Current Ratio",
+        "parametro_logico": "Passivo Corrente",
+        "tag_master": "DebitiEsigibiliEntroEsercizio",
+        "aliases": ["DebitiEsigibiliEntroEsercizio", "TotaleDebitiEntroEsercizio"]
+    },
+    {
+        "categoria": "SOLIDITÀ",
+        "indice_target": "Leverage",
+        "parametro_logico": "Totale Debiti",
+        "tag_master": "TotaleDebiti",
+        "aliases": ["TotaleDebiti", "DebitiTotale"]
+    }
 ]
 
 def clean_tag_name(tag: str) -> str:
     if not tag: return ""
     s = tag.split('}')[-1]
-    s = re.sub(r'^(it-cc-ci_|itcc-ci_|itcc-ci:|xbrli:|it-cc-ci:)', '', s, flags=re.IGNORECASE)
+    s = re.sub(r'^(it-cc-ci_|itcc-ci:|xbrli:|it-cc-ci:)', '', s, flags=re.IGNORECASE)
     return s.strip()
 
-def estrai_universo_tag(root: ET.Element) -> List[Dict[str, Any]]:
-    """ Scansiona ed estrae integralmente ogni tag numerico valido presente nel file XBRL """
-    tag_scoperti = []
-    visti = set()
+def estrai_anagrafica_xbrl(root: ET.Element, local_name: str) -> str:
+    for elem in root.iter():
+        if elem.tag.split('}')[-1] == local_name:
+            return elem.text.strip() if elem.text else ""
+    return ""
+
+def elabora_pipeline_xbrl(file_bytes: bytes, filename: str) -> Dict[str, Any]:
+    raw_text = file_bytes.decode('utf-8', errors='ignore')
+    try:
+        root = ET.fromstring(raw_text)
+    except Exception as e:
+        raise ValueError(f"XML/XBRL malformato: {str(e)}")
+
+    # Metadati Aziendali
+    azienda = estrai_anagrafica_xbrl(root, "DatiAnagraficiDenominazione") or "Azienda Rilevata"
+    cf = estrai_anagrafica_xbrl(root, "DatiAnagraficiCodiceFiscale") or "00000000000"
+    
+    # 1. ESTRAZIONE FLAT INTEGRALE DI TUTTI I TAG NUMERICI
+    mappa_tag_file = []
     contatore = 1
     
-    tag_esclusi = ['xbrl', 'context', 'unit', 'schemaRef', 'identifier', 'segment', 'period', 'startDate', 'endDate', 'instant']
-    
     for elem in root.iter():
-        tag_raw = elem.tag.split('}')[-1]
-        if tag_raw in tag_esclusi or not elem.text or not elem.text.strip():
-            continue
-            
+        local_name = clean_tag_name(elem.tag)
         context_ref = elem.attrib.get('contextRef', '')
-        # Intercettiamo i contesti di bilancio (corrente c0, precedente c1 o varianti standard)
-        if any(c in context_ref for c in ['c0', 'c1', 'Instant', 'Duration']):
-            valore_str = elem.text.strip()
-            # Validiamo che sia un dato numerico (importi o conteggi)
-            if re.match(r'^-?\d+(\.\d+)?$', valore_str):
-                chiave = f"{tag_raw}_{context_ref}_{valore_str}"
-                if chiave not in visti:
-                    visti.add(chiave)
-                    tag_scoperti.append({
-                        "id_veloce": f"T{contatore}",
-                        "tag_reale": tag_raw,
-                        "contesto": context_ref,
-                        "valore": float(valore_str)
-                    })
-                    contatore += 1
-    return tag_scoperti
+        
+        if context_ref and elem.text and elem.text.strip():
+            try:
+                valore_float = float(elem.text.strip())
+                periodo = "Corrente (c0)" if "c0" in context_ref.lower() else "Precedente (c1)" if "c1" in context_ref.lower() else "Altro"
+                
+                mappa_tag_file.append({
+                    "id_veloce": f"T{contatore}",
+                    "tag_reale": local_name,
+                    "contesto": context_ref,
+                    "periodo": periodo,
+                    "valore": valore_float
+                })
+                contatore += 1
+            except ValueError:
+                continue
+
+    # 2. MATCHING DETERMINISTICO PER VALORI STANDARD
+    parificazione_sessione = []
+    for p in PARAMETRI_PARIFICAZIONE:
+        valore_c0 = 0.0
+        valore_c1 = 0.0
+        tag_agganciato = "[NON RILEVATO]"
+        
+        # Cerca corrispondenze nell'universo flat appena generato
+        for t in mappa_tag_file:
+            if t["tag_reale"].lower() == p["tag_master"].lower() or t["tag_reale"] in p["aliases"]:
+                if "c0" in t["contesto"].lower():
+                    valore_c0 = t["valore"]
+                    tag_agganciato = t["tag_reale"]
+                elif "c1" in t["contesto"].lower():
+                    valore_c1 = t["valore"]
+
+        parificazione_sessione.append({
+            "categoria": p["categoria"],
+            "indice_target": p["indice_target"],
+            "parametro_logico": p["parametro_logico"],
+            "tag_master": p["tag_master"],
+            "tag_xbrl_rilevato": tag_agganciato,
+            "valore_corrente": valore_c0,
+            "valore_precedente": valore_c1,
+            "esito": "ALLINEATO" if tag_agganciato != "[NON RILEVATO]" else "ASSENTE"
+        })
+
+    return {
+        "status": "success",
+        "filename": filename,
+        "azienda": azienda,
+        "azienda_codice_fiscale": cf,
+        "mappa_tag_file": mappa_tag_file,
+        "parificazione_sessione": parificazione_sessione
+    }
 
 @app.post("/api/v1/analizzatore-xbrl")
-@app.post("/analizzatore-xbrl")
 async def upload_xbrl(file: UploadFile = File(...)):
     try:
         file_bytes = await file.read()
-        raw_text = file_bytes.decode('utf-8', errors='ignore')
-        root = ET.fromstring(raw_text)
-        
-        # 1. Estrazione Anagrafica Base
-        def find_meta(local_name: str, default: str) -> str:
-            for elem in root.iter():
-                if elem.tag.split('}')[-1] == local_name: return elem.text.strip() if elem.text else default
-            return default
-
-        azienda = find_meta("DatiAnagraficiDenominazione", "Azienda non rilevata")
-        cf = find_meta("DatiAnagraficiCodiceFiscale", "00000000000")
-        
-        # 2. Estrazione totale dell'universo dei tag per l'Architetto (Fase 1)
-        lista_tutti_tag_file = estrai_universo_tag(root)
-        
-        # 3. Pre-matching euristico per agevolare l'apertura della pagina
-        parificazione_sessione = []
-        for p in PARAMETRI_PARIFICAZIONE:
-            match_automatico = ""
-            esito = "ASSENTE_NEL_FILE"
-            
-            for t in lista_tutti_tag_file:
-                if t["tag_reale"].lower() == p["tag_clean"] and t["contesto"].startswith("c0"):
-                    match_automatico = f"it-cc-ci_{t['tag_reale']}"
-                    esito = "COERENTE"
-                    break
-            
-            parificazione_sessione.append({
-                "id": p["tag_clean"].upper()[:4],
-                "macroCategoria": p["categoria"],
-                "indiceTarget": p["indice_target"],
-                "parametroLogico": p["parametro_logico"],
-                "tagMasterCompleto": p["tag_master"],
-                "tagClean": p["tag_clean"],
-                "tagRilevatoFileXbrl": match_automatico,
-                "confrontoEsito": esito
-            })
-
-        return {
-            "filename": file.filename,
-            "azienda": azienda,
-            "azienda_codice_fiscale": cf,
-            "lista_tutti_tag_file": lista_tutti_tag_file,
-            "parificazione_sessione": parificazione_sessione,
-            "status": "success"
-        }
+        return elabora_pipeline_xbrl(file_bytes, file.filename)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Errore critico workbench: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
