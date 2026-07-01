@@ -17,7 +17,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- DIZIONARIO MASTER DEI PARAMETRI DI PARIFICAZIONE (CORRISPONDENZA INTERFACCIA) ---
+# --- DIZIONARIO MASTER DEI PARAMETRI DI PARIFICAZIONE (ALLINEATO CON INTERFACCIA) ---
 
 PARAMETRI_PARIFICAZIONE = [
     {
@@ -201,11 +201,11 @@ def elabora_pipeline_xbrl(file_bytes: bytes, filename: str, staging_id: int) -> 
             "tag_master": target_master,
             "tag_xbrl_rilevato": tag_rilevato if tag_rilevato else "[VUOTO / MANCANTE]",
             "valore_estratto": valore_estratto,
-            "esito": esito
+            "esito": esito if tag_rilevato else "ASSENTE NEL FILE"
         })
 
     # ==========================================
-    # 3. ESTRAZIONE DATI RETROCOMPATIBILE - ANNO CORRENTE (c0)
+    # 3. ESTRAZIONE DATI - ANNO CORRENTE (c0)
     # ==========================================
     ricavi_c0 = estrai_valore_xbrl(root, "RicaviVenditePrestazioni", "c0")
     if ricavi_c0 == 0.0: 
@@ -221,7 +221,7 @@ def elabora_pipeline_xbrl(file_bytes: bytes, filename: str, staging_id: int) -> 
     patrimonio_netto_c0 = estrai_valore_xbrl(root, "TotalePatrimonioNetto", "c0")
 
     # ==========================================
-    # 4. ESTRAZIONE DATI RETROCOMPATIBILE - ANNO PRECEDENTE (c1)
+    # 4. ESTRAZIONE DATI - ANNO PRECEDENTE (c1)
     # ==========================================
     ricavi_c1 = estrai_valore_xbrl(root, "RicaviVenditePrestazioni", "c1")
     if ricavi_c1 == 0.0: 
@@ -301,7 +301,7 @@ def elabora_pipeline_xbrl(file_bytes: bytes, filename: str, staging_id: int) -> 
         "orientamento_voto": orientamento,
         "nota_congruita": nota,
         
-        # AGGANCIO PER TABELLA FRONTEND DI PARIFICAZIONE
+        # NUOVA CHIAVE STRUTTURATA PER LA TABELLA DI PARIFICAZIONE
         "parificazione_sessione": parificazione_sessione,
         
         # DATI ANNO CORRENTE (Livello Radice per retrocompatibilità)
@@ -334,7 +334,7 @@ async def upload_xbrl(file: UploadFile = File(...)):
         file_bytes = await file.read()
         staging_id_finto = 28 
         risultato_completo = elabora_pipeline_xbrl(file_bytes, file.filename, staging_id_finto)
-        return resultado_completo
+        return risultato_completo
     except Exception as e:
         return {"status": "error", "message": f"Errore elaborazione: {str(e)}"}
         
