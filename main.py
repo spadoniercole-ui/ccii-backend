@@ -17,91 +17,127 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- DIZIONARIO MASTER DEI PARAMETRI DI PARIFICAZIONE (ALLINEATO CON INTERFACCIA) ---
+# --- DIZIONARIO MASTER DEI PARAMETRI DI PARIFICAZIONE INTEGRALE ---
 
 PARAMETRI_PARIFICAZIONE = [
     {
+        "id": "R1",
         "categoria": "REDDITIVITÀ",
         "indice_target": "ROE",
         "parametro_logico": "Utile Netto",
         "tag_master": "it-cc-ci_UtilePerditaEsercizio",
+        "tag_master_completo": "it-cc-ci_UtilePerditaEsercizio",
+        "tag_clean": "utileperditaesercizio",
         "aliases": ["UtilePerditaEsercizio", "RisultatoEsercizio", "UtileOPerditaDellEsercizio"]
     },
     {
+        "id": "R2",
         "categoria": "REDDITIVITÀ",
         "indice_target": "ROE",
         "parametro_logico": "Patrimonio Netto",
         "tag_master": "it-cc-ci_PatrimonioNetto",
+        "tag_master_completo": "it-cc-ci_PatrimonioNetto",
+        "tag_clean": "patrimonionetto",
         "aliases": ["PatrimonioNetto", "PatrimonioNettoCapitale", "TotalePatrimonioNetto"]
     },
     {
+        "id": "R3",
         "categoria": "REDDITIVITÀ",
         "indice_target": "ROI / ROS",
         "parametro_logico": "Risultato Operativo (EBIT)",
         "tag_master": "it-cc-ci_DifferenzaValoreCostiProduzione",
+        "tag_master_completo": "it-cc-ci_DifferenzaValoreCostiProduzione",
+        "tag_clean": "differenzavalorecostiproduzione",
         "aliases": ["DifferenzaValoreCostiProduzione", "MargineOperativoLordo", "RisultatoOperativo"]
     },
     {
+        "id": "R4",
         "categoria": "REDDITIVITÀ",
         "indice_target": "ROI / ROA",
         "parametro_logico": "Totale Attivo",
         "tag_master": "it-cc-ci_TotaleAttivoPassivo",
+        "tag_master_completo": "it-cc-ci_TotaleAttivoPassivo",
+        "tag_clean": "totaleattivopassivo",
         "aliases": ["TotaleAttivo", "TotaleAttivoPassivo", "AttivoTotale"]
     },
     {
+        "id": "R5",
         "categoria": "REDDITIVITÀ",
         "indice_target": "ROS / EBITDA %",
         "parametro_logico": "Ricavi delle Vendite",
         "tag_master": "it-cc-ci_RicaviVenditePrestazioni",
+        "tag_master_completo": "it-cc-ci_RicaviVenditePrestazioni",
+        "tag_clean": "ricavivenditeprestazioni",
         "aliases": ["RicaviVenditePrestazioni", "ValoreDellaProduzione", "RicaviDelleVenditeEDellePrestazioni"]
     },
     {
+        "id": "L1",
         "categoria": "LIQUIDITÀ",
         "indice_target": "Current / Quick Ratio",
         "parametro_logico": "Attivo Corrente",
         "tag_master": "it-cc-ci_AttivoCircolanteTotale",
+        "tag_master_completo": "it-cc-ci_AttivoCircolanteTotale",
+        "tag_clean": "attivocircolantetotale",
         "aliases": ["TotaleAttivoCircolante", "AttivoCircolanteTotale", "AttivoCircolante"]
     },
     {
+        "id": "L2",
         "categoria": "LIQUIDITÀ",
         "indice_target": "Current / Quick Ratio",
         "parametro_logico": "Passivo Corrente",
         "tag_master": "it-cc-ci_DebitiEsigibiliEntroEsercizio",
+        "tag_master_completo": "it-cc-ci_DebitiEsigibiliEntroEsercizio",
+        "tag_clean": "debitiesigibilientroesercizio",
         "aliases": ["DebitiEsigibiliEntroEsercizio", "DebitiEsigibiliEntroEsercizioSuccessivo", "TotaleDebitiEntroEsercizio"]
     },
     {
+        "id": "L3",
         "categoria": "LIQUIDITÀ",
         "indice_target": "Quick Ratio",
         "parametro_logico": "Rimanenze",
         "tag_master": "it-cc-ci_RimanenzeTotale",
+        "tag_master_completo": "it-cc-ci_RimanenzeTotale",
+        "tag_clean": "rimanenzetotale",
         "aliases": ["TotaleRimanenze", "RimanenzeTotale", "Rimanenze"]
     },
     {
+        "id": "S1",
         "categoria": "SOLIDITÀ",
         "indice_target": "Leverage",
         "parametro_logico": "Totale Debiti",
         "tag_master": "it-cc-ci_DebitiTotale",
+        "tag_master_completo": "it-cc-ci_DebitiTotale",
+        "tag_clean": "debititotale",
         "aliases": ["TotaleDebiti", "DebitiTotale", "Debiti"]
     },
     {
+        "id": "S2",
         "categoria": "SOLIDITÀ",
         "indice_target": "Copertura Immobilizzazioni",
         "parametro_logico": "Immobilizzazioni",
         "tag_master": "it-cc-ci_ImmobilizzazioniTotale",
+        "tag_master_completo": "it-cc-ci_ImmobilizzazioniTotale",
+        "tag_clean": "immobilizzazionitotale",
         "aliases": ["TotaleImmobilizzazioni", "ImmobilizzazioniTotale", "Immobilizzazioni"]
     },
     {
+        "id": "C1",
         "categoria": "CCII_CRISI",
         "indice_target": "DSCR / Cash Flow",
         "parametro_logico": "Ammortamenti e Svalutazioni",
         "tag_master": "it-cc-ci_AmmortamentiSvalutazioniTotale",
+        "tag_master_completo": "it-cc-ci_AmmortamentiSvalutazioniTotale",
+        "tag_clean": "ammortamentisvalutazionitotale",
         "aliases": ["AmmortamentiSvalutazioniTotale", "AmmortamentiESvalutazioni", "TotaleAmmortamentiSvalutazioni"]
     },
     {
+        "id": "C2",
         "categoria": "CCII_CRISI",
         "indice_target": "DSCR / Cash Flow",
         "parametro_logico": "Accantonamenti",
         "tag_master": "it-cc-ci_AccantonamentiPerRischiOneri",
+        "tag_master_completo": "it-cc-ci_AccantonamentiPerRischiOneri",
+        "tag_clean": "accantonamentiperrischioneri",
         "aliases": ["AccantonamentiPerRischiOneri", "AccantonamentiTotale", "Accantonamenti"]
     }
 ]
@@ -165,18 +201,18 @@ def elabora_pipeline_xbrl(file_bytes: bytes, filename: str, staging_id: int) -> 
     ateco = estrai_anagrafica_xbrl(root, "DatiAnagraficiCodiceAteco") or "47.24.0"
 
     # ==========================================
-    # GENERAZIONE ENGINE DI PARIFICAZIONE STRUTTURATA (Nuova logica additiva)
+    # GENERAZIONE ENGINE DI PARIFICAZIONE STRUTTURATA (Logica basata su Tokenizzazione pulita)
     # ==========================================
     parificazione_sessione = []
     
     for p in PARAMETRI_PARIFICAZIONE:
-        target_master = p["tag_master"]
-        target_clean = clean_tag_name(target_master)
+        target_master = p["tag_master_completo"]
+        target_clean = p["tag_clean"]
         aliases_clean = [clean_tag_name(a) for a in p["aliases"]]
         
         tag_rilevato = None
         valore_estratto = 0.0
-        esito = "ASSENTE NEL FILE"
+        esito = "ASSENTE_NEL_FILE"
         
         # Scansione del file XBRL alla ricerca del tag corrispondente per l'anno corrente (c0)
         for elem in root.iter():
@@ -189,19 +225,25 @@ def elabora_pipeline_xbrl(file_bytes: bytes, filename: str, staging_id: int) -> 
                     try:
                         valore_estratto = float(elem.text.strip()) if elem.text else 0.0
                         tag_rilevato = f"itcc-ci:{local_name}"
-                        esito = "ALLINEATO"
+                        if local_clean == target_clean:
+                            esito = "COERENTE"
+                        else:
+                            esito = "DISALLINEATO"
                         break
                     except ValueError:
                         continue
                         
         parificazione_sessione.append({
+            "id": p["id"],
             "categoria": p["categoria"],
             "indice_target": p["indice_target"],
             "parametro_logico": p["parametro_logico"],
             "tag_master": target_master,
+            "tag_master_completo": target_master,
+            "tag_clean": target_clean,
             "tag_xbrl_rilevato": tag_rilevato if tag_rilevato else "[VUOTO / MANCANTE]",
             "valore_estratto": valore_estratto,
-            "esito": esito if tag_rilevato else "ASSENTE NEL FILE"
+            "esito": esito
         })
 
     # ==========================================
@@ -301,7 +343,7 @@ def elabora_pipeline_xbrl(file_bytes: bytes, filename: str, staging_id: int) -> 
         "orientamento_voto": orientamento,
         "nota_congruita": nota,
         
-        # NUOVA CHIAVE STRUTTURATA PER LA TABELLA DI PARIFICAZIONE
+        # CHIAVE STRUTTURATA PER LA TABELLA DI PARIFICAZIONE
         "parificazione_sessione": parificazione_sessione,
         
         # DATI ANNO CORRENTE (Livello Radice per retrocompatibilità)
